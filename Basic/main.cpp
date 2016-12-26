@@ -86,7 +86,4 @@ void setup() {
   digitalWrite(D2, HIGH);
   pinMode(D3, OUTPUT);
   digitalWrite(D3, HIGH);
-
-  // setenv("TZ", "KST-9", 1);
-  // tzset();
 }
