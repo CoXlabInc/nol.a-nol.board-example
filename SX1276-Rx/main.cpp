@@ -10,7 +10,7 @@ Radio::LoRaCR_t cr = Radio::CR_4_5;
 Radio::LoRaBW_t bw;
 bool iq;
 uint8_t syncword;
-uint32_t freq = 921900000;
+uint32_t freq = 917100000;
 
 static void printRxDone(void *args) {
   static uint16_t success = 0;

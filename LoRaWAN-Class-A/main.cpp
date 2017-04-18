@@ -6,7 +6,7 @@ Timer timerSend;
 #define OVER_THE_AIR_ACTIVATION 1
 
 #if (OVER_THE_AIR_ACTIVATION == 1)
-static const uint8_t devEui[] = "\xA7\x05\x00\xFF\xFF\x5B\x0C\x14";
+static const uint8_t devEui[] = "\x14\x0C\x5B\xFF\xFF\x00\x05\xA7";
 static const uint8_t appEui[] = "\x00\x00\x00\x00\x00\x00\x00\x00";
 static const uint8_t appKey[] = "\x0b\xf2\x80\x34\xed\xcb\x14\xe0\x9e\x1f\x94\xea\x73\xe8\xef\x0e";
 #else
@@ -17,7 +17,7 @@ static uint32_t DevAddr = 0x06e632e8;
 #endif //OVER_THE_AIR_ACTIVATION
 
 static void taskPeriodicSend(void *) {
-  LoRaMacFrame *f = new LoRaMacFrame(8);
+  LoRaMacFrame *f = new LoRaMacFrame(100);
   if (!f) {
     printf("* Out of memory\n");
     return NULL;
@@ -25,10 +25,11 @@ static void taskPeriodicSend(void *) {
 
   f->port = 1;
   f->type = LoRaMacFrame::CONFIRMED;
-  memcpy(f->buf, "\"test\":1", 8);
+  strcpy(f->buf, "\"temp\":29.2,\"humi\":3.9,\"press\":981.9");
+  f->len = strlen((char *) f->buf);
 
   error_t err = LoRaWAN->send(f);
-  printf("* Sending periodic report (%p): %d\n", f, err);
+  printf("* Sending periodic report (%p:%s (%u byte)): %d\n", f, f->buf, f->len, err);
   if (err != ERROR_SUCCESS) {
     delete f;
     timerSend.startOneShot(10000);

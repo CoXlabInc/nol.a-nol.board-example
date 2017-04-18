@@ -4,6 +4,7 @@
 
 Timer ledTimer;
 Timer printTimer;
+Timer pulseTimer;
 
 static void ledOffTask(void *args);
 
@@ -20,6 +21,10 @@ static void ledOffTask(void *args) {
   digitalWrite(D2, LOW);
 }
 
+static void togglePulse(void *args) {
+  digitalToggle(D1);
+}
+
 static const char *weekday[] = { "SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT" };
 static void printTask(void *args) {
   printf("[%lu usec] Timer works!\n", micros());
@@ -31,7 +36,7 @@ static void printTask(void *args) {
   printf("Now: %u-%u-%u %s %02u:%02u:%02u\n", year, month, day, weekday[dayOfWeek], hour, minute, second);
   printf("Supply voltage: %ld mV\n", System.getSupplyVoltage());
 
-  Serial2.printf("[%lu usec] Timer works!\n", micros());
+  //Serial2.printf("[%lu usec] Timer works!\n", micros());
 }
 
 static void eventDateTimeAlarm() {
@@ -58,9 +63,9 @@ void setup() {
   Serial.onReceive(eventSerialRx);
   Serial.listen();
 
-  Serial2.begin(57600);
-  Serial2.onReceive(eventSerialRx);
-  Serial2.listen();
+  // Serial2.begin(57600);
+  // Serial2.onReceive(eventSerialRx);
+  // Serial2.listen();
 
   printf("\n*** [Nol.Board] Basic Functions ***\n");
   System.setDateTime(2016, 8, 22, 10, 0, 0, RTCCalendar::MONDAY);
