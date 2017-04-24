@@ -1,6 +1,7 @@
 #include <cox.h>
+#include "LoRaMacKR920.hpp"
 
-LoRaMac *LoRaWAN;
+LoRaMacKR920 *LoRaWAN;
 Timer timerSend;
 
 #define OVER_THE_AIR_ACTIVATION 1
@@ -46,6 +47,7 @@ static void taskPeriodicSend(void *) {
 }
 //! [How to send]
 
+//! [How to use onJoin callback for SKT]
 static void eventLoRaWANJoin( LoRaMac &,
                               bool joined,
                               const uint8_t *joinedDevEui,
@@ -56,15 +58,20 @@ static void eventLoRaWANJoin( LoRaMac &,
                               uint32_t joinedDevAddr) {
 #if (OVER_THE_AIR_ACTIVATION == 1)
   if (joined) {
-    // Status is OK, node has joined the network
-    printf("* Joined to the network!\n");
-    postTask(taskPeriodicSend, NULL);
+    if (joinedNwkSKey && joinedAppSKey) {
+      // Status is OK, node has joined the network
+      printf("* Joined to the network!\n");
+      postTask(taskPeriodicSend, NULL);
+    } else {
+      printf("* PseudoAppKey joining done!\n");
+    }
   } else {
     printf("* Join failed. Retry to join\n");
     LoRaWAN->beginJoining(devEui, appEui, appKey);
   }
 #endif
 }
+//! [How to use onJoin callback for SKT]
 
 //! [How to use onSendDone callback]
 static void eventLoRaWANSendDone(LoRaMac &, LoRaMacFrame *frame, error_t result) {
@@ -144,7 +151,7 @@ void setup() {
   Serial.begin(115200);
   Serial.printf("\n*** [Nol.Board] LoRaWAN Class A Example ***\n");
 
-  LoRaWAN = LoRaMac::CreateForKR917();
+  LoRaWAN = new LoRaMacKR920();
 
   LoRaWAN->begin(SX1276);
 
@@ -172,7 +179,17 @@ void setup() {
   postTask(taskPeriodicSend, NULL);
 #else
   printf("Trying to join\n");
-  LoRaWAN->setNetworkJoined(true);  /* true: RealAppKey join, false: PseudoAppKey join */
+
+#if 0
+  //! [SKT PseudoAppKey joining]
+  LoRaWAN->setNetworkJoined(false);
   LoRaWAN->beginJoining(devEui, appEui, appKey);
+  //! [SKT PseudoAppKey joining]
+#else
+  //! [SKT RealAppKey joining]
+  LoRaWAN->setNetworkJoined(true);
+  LoRaWAN->beginJoining(devEui, appEui, appKey);
+  //! [SKT RealAppKey joining]
+#endif
 #endif
 }
