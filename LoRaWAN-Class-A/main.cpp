@@ -4,7 +4,7 @@
 LoRaMacKR920 *LoRaWAN;
 Timer timerSend;
 
-#define OVER_THE_AIR_ACTIVATION 1
+#define OVER_THE_AIR_ACTIVATION 0
 
 #if (OVER_THE_AIR_ACTIVATION == 1)
 static const uint8_t devEui[] = "\x14\x0C\x5B\xFF\xFF\x00\x05\xA7";
@@ -26,7 +26,7 @@ static void taskPeriodicSend(void *) {
   }
 
   f->port = 1;
-  f->type = LoRaMacFrame::CONFIRMED;
+  f->type = LoRaMacFrame::UNCONFIRMED;
   strcpy((char *) f->buf, "Test");
   f->len = strlen((char *) f->buf);
 
@@ -36,7 +36,7 @@ static void taskPeriodicSend(void *) {
   // f->meta.LoRa.bw = Radio::BW_125kHz;
   // f->meta.LoRa.sf = Radio::SF7;
   // f->power = 10;
-  // f->numTrials = 5;
+  f->numTrials = 5;
 
   error_t err = LoRaWAN->send(f);
   printf("* Sending periodic report (%p:%s (%u byte)): %d\n", f, f->buf, f->len, err);
@@ -147,9 +147,74 @@ static void eventLoRaWANJoinRequested(LoRaMac &, uint32_t frequencyHz, const LoR
 }
 //! [How to use onJoinRequested callback]
 
+//! [eventLoRaWANLinkADRReqReceived]
+static void printChannelInformation(LoRaMac &lw) {
+  //! [getChannel]
+  for (uint8_t i = 0; i < lw.MaxNumChannels; i++) {
+    const LoRaMac::ChannelParams_t *p = lw.getChannel(i);
+    if (p) {
+      printf(" - [%u] Frequency:%lu Hz\n", i, p->Frequency);
+    } else {
+      printf(" - [%u] disabled\n", i);
+    }
+  }
+  //! [getChannel]
+
+  //! [getDatarate]
+  const LoRaMac::DatarateParams_t *dr = lw.getDatarate(lw.getDefDatarate());
+  printf(" - Default DR%u:", lw.getDefDatarate());
+  if (dr->mod == Radio::MOD_LORA) {
+    printf("LoRa SF%u ", dr->param.LoRa.sf);
+    const char *strBW[] = { "Unknown", "125kHz", "250kHz", "500kHz", "Unexpected value" };
+    printf("LoRa, SF%u BW:%s", dr->param.LoRa.sf, strBW[min(dr->param.LoRa.bw, 4)]);
+  } else if (dr->mod == Radio::MOD_FSK) {
+    printf("FSK\n");
+  } else {
+    printf("Unknown modulation\n");
+  }
+  //! [getDatarate]
+
+  printf(" - # of repetitions of unconfirmed uplink frames: %u\n", lw.getNumRepetitions());
+}
+
+static void eventLoRaWANLinkADRReqReceived(LoRaMac &l) {
+  printf("* LoRaWAN LinkADRReq received.\n");
+  printChannelInformation(l);
+}
+//! [eventLoRaWANLinkADRReqReceived]
+
+//! [eventLoRaWANDutyCycleReqReceived]
+static void eventLoRaWANDutyCycleReqReceived(LoRaMac &lw) {
+  printf("* LoRaWAN DutyCycleReq received. Current MaxDCycle is %u.\n", lw.getMaxDutyCycle());
+}
+//! [eventLoRaWANDutyCycleReqReceived]
+
+//! [eventLoRaWANRxParamSetupReqReceived]
+static void eventLoRaWANRxParamSetupReqReceived(LoRaMac &lw) {
+  printf("* LoRaWAN RxParamSetupReq received. Current Rx1Offset is %u, and Rx2 channel is (DR%u, %lu Hz).\n", lw.getRx1DrOffset(), lw.getRx2Datarate(), lw.getRx2Frequency());
+}
+//! [eventLoRaWANRxParamSetupReqReceived]
+
+static void eventLoRaWANDevStatusReqReceived(LoRaMac &lw) {
+  printf("* LoRaWAN DevStatusReq received.\n");
+}
+
+static void eventLoRaWANNewChannelReqReceived(LoRaMac &lw) {
+  printf("* LoRaWAN NewChannelReq received.\n");
+  printChannelInformation(lw);
+}
+
+//! [eventLoRaWANRxTimingSetupReqReceived]
+static void eventLoRaWANRxTimingSetupReqReceived(LoRaMac &lw) {
+  printf("* LoRaWAN RxTimingSetupReq received. Current Rx1 delay is %u msec, and Rx2 delay is %u msec.\n", lw.getRx1Delay(), lw.getRx2Delay());
+}
+//! [eventLoRaWANRxTimingSetupReqReceived]
+
 void setup() {
   Serial.begin(115200);
   Serial.printf("\n*** [Nol.Board] LoRaWAN Class A Example ***\n");
+
+  timerSend.onFired(taskPeriodicSend, NULL);
 
   LoRaWAN = new LoRaMacKR920();
 
@@ -169,7 +234,16 @@ void setup() {
   LoRaWAN->onJoinRequested(eventLoRaWANJoinRequested);
   //! [How to set onJoinRequested callback]
 
+  LoRaWAN->onLinkADRReqReceived(eventLoRaWANLinkADRReqReceived);
+  LoRaWAN->onDutyCycleReqReceived(eventLoRaWANDutyCycleReqReceived);
+  LoRaWAN->onRxParamSetupReqReceived(eventLoRaWANRxParamSetupReqReceived);
+  LoRaWAN->onDevStatusReqReceived(eventLoRaWANDevStatusReqReceived);
+  LoRaWAN->onNewChannelReqReceived(eventLoRaWANNewChannelReqReceived);
+  LoRaWAN->onRxTimingSetupReqReceived(eventLoRaWANRxTimingSetupReqReceived);
+
   LoRaWAN->setPublicNetwork(false);
+
+  printChannelInformation(*LoRaWAN);
 
 #if (OVER_THE_AIR_ACTIVATION == 0)
   printf("ABP!\n");
