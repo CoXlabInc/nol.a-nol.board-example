@@ -148,6 +148,16 @@ static void eventLoRaWANJoinRequested(LoRaMac &, uint32_t frequencyHz, const LoR
 //! [How to use onJoinRequested callback]
 
 //! [eventLoRaWANLinkADRReqReceived]
+static void eventLoRaWANLinkADRReqReceived(LoRaMac &l, const uint8_t *payload) {
+  printf("* LoRaWAN LinkADRReq received: [");
+  for (uint8_t i = 0; i < 4; i++) {
+    printf(" %02X", payload[i]);
+  }
+  printf(" ]\n");
+}
+//! [eventLoRaWANLinkADRReqReceived]
+
+//! [eventLoRaWANLinkADRAnsSent]
 static void printChannelInformation(LoRaMac &lw) {
   //! [getChannel]
   for (uint8_t i = 0; i < lw.MaxNumChannels; i++) {
@@ -177,38 +187,107 @@ static void printChannelInformation(LoRaMac &lw) {
   printf(" - # of repetitions of unconfirmed uplink frames: %u\n", lw.getNumRepetitions());
 }
 
-static void eventLoRaWANLinkADRReqReceived(LoRaMac &l) {
-  printf("* LoRaWAN LinkADRReq received.\n");
+static void eventLoRaWANLinkADRAnsSent(LoRaMac &l, uint8_t status) {
+  printf("* LoRaWAN LinkADRAns sent with status 0x%02X.\n", status);
   printChannelInformation(l);
 }
-//! [eventLoRaWANLinkADRReqReceived]
+//! [eventLoRaWANLinkADRAnsSent]
 
 //! [eventLoRaWANDutyCycleReqReceived]
-static void eventLoRaWANDutyCycleReqReceived(LoRaMac &lw) {
-  printf("* LoRaWAN DutyCycleReq received. Current MaxDCycle is %u.\n", lw.getMaxDutyCycle());
+static void eventLoRaWANDutyCycleReqReceived(LoRaMac &lw, const uint8_t *payload) {
+  printf("* LoRaWAN DutyCycleReq received: [");
+  for (uint8_t i = 0; i < 1; i++) {
+    printf(" %02X", payload[i]);
+  }
+  printf(" ]\n");
 }
 //! [eventLoRaWANDutyCycleReqReceived]
 
+//! [eventLoRaWANDutyCycleAnsSent]
+static void eventLoRaWANDutyCycleAnsSent(LoRaMac &lw) {
+  printf("* LoRaWAN DutyCycleAns sent. Current MaxDCycle is %u.\n", lw.getMaxDutyCycle());
+}
+//! [eventLoRaWANDutyCycleAnsSent]
+
 //! [eventLoRaWANRxParamSetupReqReceived]
-static void eventLoRaWANRxParamSetupReqReceived(LoRaMac &lw) {
-  printf("* LoRaWAN RxParamSetupReq received. Current Rx1Offset is %u, and Rx2 channel is (DR%u, %lu Hz).\n", lw.getRx1DrOffset(), lw.getRx2Datarate(), lw.getRx2Frequency());
+static void eventLoRaWANRxParamSetupReqReceived(LoRaMac &lw, const uint8_t *payload) {
+  printf("* LoRaWAN RxParamSetupReq received: [");
+  for (uint8_t i = 0; i < 4; i++) {
+    printf(" %02X", payload[i]);
+  }
+  printf(" ]\n");
 }
 //! [eventLoRaWANRxParamSetupReqReceived]
+
+//! [eventLoRaWANRxParamSetupAnsSent]
+static void eventLoRaWANRxParamSetupAnsSent(LoRaMac &lw, uint8_t status) {
+  printf("* LoRaWAN RxParamSetupAns sent with status 0x%02X. Current Rx1Offset is %u, and Rx2 channel is (DR%u, %lu Hz).\n", status, lw.getRx1DrOffset(), lw.getRx2Datarate(), lw.getRx2Frequency());
+}
+//! [eventLoRaWANRxParamSetupAnsSent]
 
 static void eventLoRaWANDevStatusReqReceived(LoRaMac &lw) {
   printf("* LoRaWAN DevStatusReq received.\n");
 }
 
-static void eventLoRaWANNewChannelReqReceived(LoRaMac &lw) {
-  printf("* LoRaWAN NewChannelReq received.\n");
-  printChannelInformation(lw);
+//! [eventLoRaWANDevStatusAnsSent]
+static void eventLoRaWANDevStatusAnsSent(LoRaMac &lw, uint8_t bat, uint8_t margin) {
+  printf("* LoRaWAN DevStatusAns sent. (");
+  if (bat == 0) {
+    printf("Powered by external power source. ");
+  } else if (bat == 255) {
+    printf("Battery level cannot be measured. ");
+  } else {
+    printf("Battery: %lu %%. ", map(bat, 1, 254, 0, 100));
+  }
+
+  if (bitRead(margin, 5) == 1) {
+    margin |= bit(7) | bit(6);
+  }
+
+  printf(" SNR: %d)\n", (int8_t) margin);
 }
+//! [eventLoRaWANDevStatusAnsSent]
+
+//! [eventLoRaWANNewChannelReqReceived]
+static void eventLoRaWANNewChannelReqReceived(LoRaMac &lw, const uint8_t *payload) {
+  printf("* LoRaWAN NewChannelReq received [");
+  for (uint8_t i = 0; i < 5; i++) {
+    printf(" %02X", payload[i]);
+  }
+  printf(" ]\n");
+}
+//! [eventLoRaWANNewChannelReqReceived]
+
+//! [eventLoRaWANNewChannelAnsSent]
+static void eventLoRaWANNewChannelAnsSent(LoRaMac &lw, uint8_t status) {
+  printf("* LoRaWAN NewChannelAns sent with (Datarate range %s and channel frequency %s).\n", (bitRead(status, 1) == 1) ? "OK" : "NOT OK", (bitRead(status, 0) == 1) ? "OK" : "NOT OK");
+
+  for (uint8_t i = 0; i < lw.MaxNumChannels; i++) {
+    const LoRaMac::ChannelParams_t *p = lw.getChannel(i);
+    if (p) {
+      printf(" - [%u] Frequency:%lu Hz\n", i, p->Frequency);
+    } else {
+      printf(" - [%u] disabled\n", i);
+    }
+  }
+}
+//! [eventLoRaWANNewChannelAnsSent]
 
 //! [eventLoRaWANRxTimingSetupReqReceived]
-static void eventLoRaWANRxTimingSetupReqReceived(LoRaMac &lw) {
-  printf("* LoRaWAN RxTimingSetupReq received. Current Rx1 delay is %u msec, and Rx2 delay is %u msec.\n", lw.getRx1Delay(), lw.getRx2Delay());
+static void eventLoRaWANRxTimingSetupReqReceived(LoRaMac &lw, const uint8_t *payload) {
+  printf("* LoRaWAN RxTimingSetupReq received:  [");
+  for (uint8_t i = 0; i < 1; i++) {
+    printf(" %02X", payload[i]);
+  }
+  printf(" ]\n");
 }
 //! [eventLoRaWANRxTimingSetupReqReceived]
+
+//! [eventLoRaWANRxTimingSetupAnsSent]
+static void eventLoRaWANRxTimingSetupAnsSent(LoRaMac &lw) {
+  printf("* LoRaWAN RxTimingSetupAns sent. Current Rx1 delay is %u msec, and Rx2 delay is %u msec.\n", lw.getRx1Delay(), lw.getRx2Delay());
+}
+//! [eventLoRaWANRxTimingSetupAnsSent]
 
 void setup() {
   Serial.begin(115200);
@@ -235,11 +314,17 @@ void setup() {
   //! [How to set onJoinRequested callback]
 
   LoRaWAN->onLinkADRReqReceived(eventLoRaWANLinkADRReqReceived);
+  LoRaWAN->onLinkADRAnsSent(eventLoRaWANLinkADRAnsSent);
   LoRaWAN->onDutyCycleReqReceived(eventLoRaWANDutyCycleReqReceived);
+  LoRaWAN->onDutyCycleAnsSent(eventLoRaWANDutyCycleAnsSent);
   LoRaWAN->onRxParamSetupReqReceived(eventLoRaWANRxParamSetupReqReceived);
+  LoRaWAN->onRxParamSetupAnsSent(eventLoRaWANRxParamSetupAnsSent);
   LoRaWAN->onDevStatusReqReceived(eventLoRaWANDevStatusReqReceived);
+  LoRaWAN->onDevStatusAnsSent(eventLoRaWANDevStatusAnsSent);
   LoRaWAN->onNewChannelReqReceived(eventLoRaWANNewChannelReqReceived);
+  LoRaWAN->onNewChannelAnsSent(eventLoRaWANNewChannelAnsSent);
   LoRaWAN->onRxTimingSetupReqReceived(eventLoRaWANRxTimingSetupReqReceived);
+  LoRaWAN->onRxTimingSetupAnsSent(eventLoRaWANRxTimingSetupAnsSent);
 
   LoRaWAN->setPublicNetwork(false);
 
