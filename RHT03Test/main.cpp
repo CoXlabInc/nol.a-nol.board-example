@@ -52,10 +52,10 @@ static void taskMeasure(void *) {
   }
 }
 
-static void eventSendDone(IEEE802_15_4Mac &radio, IEEE802_15_4Frame *f, error_t result) {
+static void eventSendDone(IEEE802_15_4Mac &radio, IEEE802_15_4Frame *f) {
   printf("* Send done: ");
 
-  if (result == ERROR_SUCCESS) {
+  if (f->result == RadioPacket::SUCCESS) {
     printf("SUCCESS");
   } else {
     printf("FAIL");
@@ -85,7 +85,7 @@ void setup() {
   SX1276.setTxPower(14);
   SX1276.setChannel(921900000);
 
-  Lpp = LPPMac::Create();
+  Lpp = new LPPMac();
   Lpp->begin(SX1276, 0x1234, 0x0002, NULL);
   Lpp->setProbePeriod(3000);
   Lpp->setListenTimeout(3300);

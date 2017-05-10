@@ -1,8 +1,0 @@
-{
- "args": [
-  "nol.board"
- ],
- "sh": false,
- "env": {},
- "port": "/dev/tty.usbserial-DN00P916"
-}

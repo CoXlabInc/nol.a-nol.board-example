@@ -1,9 +1,9 @@
 #include <cox.h>
 
+//![Init]
 void send(void *args);
 static void sendDone(IEEE802_15_4Mac &radio,
-                     IEEE802_15_4Frame *frame,
-                     error_t result);
+                     IEEE802_15_4Frame *frame);
 static void sendTask(void *args);
 static void receivedProbe(uint16_t panId,
                           const uint8_t *eui64,
@@ -26,11 +26,11 @@ LPPMac *Lpp;
 
 void setup(void) {
   Serial.begin(115200);
-  printf("\n*** [PLM100] LPP Sender ***\n");
+  printf("\n*** [Nol.Board] LPP Sender ***\n");
   srand(0x1234 + node_id);
 
   SX1276.begin();
-  SX1276.setDataRate(7);
+  SX1276.setDataRate(Radio::SF7);
   SX1276.setCodingRate(Radio::CR_4_5);
   SX1276.setTxPower(14);
   SX1276.setChannel(917500000);
@@ -38,7 +38,7 @@ void setup(void) {
   node_ext_id[6] = highByte(node_id);
   node_ext_id[7] = lowByte(node_id);
 
-  Lpp = LPPMac::Create();
+  Lpp = new LPPMac();
   Lpp->begin(SX1276, 0x1234, node_id, node_ext_id);
   Lpp->setProbePeriod(3000);
   Lpp->setListenTimeout(3300);
@@ -52,15 +52,16 @@ void setup(void) {
   sendTimer.onFired(sendTask, NULL);
   sendTimer.startPeriodic(10000);
 }
+//![Init]
 
+//![Send]
 static void sendDone(IEEE802_15_4Mac &radio,
-                     IEEE802_15_4Frame *frame,
-                     error_t result) {
+                     IEEE802_15_4Frame *frame) {
   uint16_t ratio;
 
   printf("TX (");
 
-  if (result == ERROR_SUCCESS) {
+  if (frame->result == RadioPacket::SUCCESS) {
     success++;
     printf("S ");
   } else {
@@ -135,6 +136,7 @@ static void sendTask(void *args) {
     }
   }
 }
+//![Send]
 
 static void receivedProbe(uint16_t panId,
                           const uint8_t *eui64,

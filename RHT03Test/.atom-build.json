@@ -1,8 +1,0 @@
-{
- "args": [
-  "nol.board"
- ],
- "sh": false,
- "env": {},
- "port": "JTAG"
-}
