@@ -74,8 +74,8 @@ static void eventLoRaWANJoin( LoRaMac &,
 //! [How to use onJoin callback for SKT]
 
 //! [How to use onSendDone callback]
-static void eventLoRaWANSendDone(LoRaMac &, LoRaMacFrame *frame, error_t result) {
-  printf("* Send done(%d): [%p] destined for port[%u], Freq:%lu Hz, Power:%d dBm, # of Tx:%u, ", result, frame, frame->port, frame->freq, frame->power, frame->numTrials);
+static void eventLoRaWANSendDone(LoRaMac &, LoRaMacFrame *frame) {
+  printf("* Send done(%d): [%p] destined for port[%u], Freq:%lu Hz, Power:%d dBm, # of Tx:%u, ", frame->result, frame, frame->port, frame->freq, frame->power, frame->numTrials);
   if (frame->modulation == Radio::MOD_LORA) {
     const char *strBW[] = { "Unknown", "125kHz", "250kHz", "500kHz", "Unexpected value" };
     if (frame->meta.LoRa.bw > 3) {
