@@ -75,7 +75,7 @@ static void eventLoRaWANJoin( LoRaMac &,
 
 //! [How to use onSendDone callback]
 static void eventLoRaWANSendDone(LoRaMac &, LoRaMacFrame *frame) {
-  printf("* Send done(%d): [%p] destined for port[%u], Freq:%lu Hz, Power:%d dBm, # of Tx:%u, ", frame->result, frame, frame->port, frame->freq, frame->power, frame->numTrials);
+  printf("* Send done(%d): [%p] destined for port:%u, fCnt:0x%08lX, Freq:%lu Hz, Power:%d dBm, # of Tx:%u, ", frame->result, frame, frame->port, frame->fCnt, frame->freq, frame->power, frame->numTrials);
   if (frame->modulation == Radio::MOD_LORA) {
     const char *strBW[] = { "Unknown", "125kHz", "250kHz", "500kHz", "Unexpected value" };
     if (frame->meta.LoRa.bw > 3) {
@@ -107,7 +107,7 @@ static void eventLoRaWANSendDone(LoRaMac &, LoRaMacFrame *frame) {
 
 //! [How to use onReceive callback]
 static void eventLoRaWANReceive(LoRaMac &, const LoRaMacFrame *frame) {
-  printf("* Received: destined for port[%u], Freq:%lu Hz, RSSI:%d dB", frame->port, frame->freq, frame->power);
+  printf("* Received: destined for port:%u, fCnt:0x%08lX, Freq:%lu Hz, RSSI:%d dB", frame->port, frame->fCnt, frame->freq, frame->power);
   if (frame->modulation == Radio::MOD_LORA) {
     const char *strBW[] = { "Unknown", "125kHz", "250kHz", "500kHz", "Unexpected value" };
     printf(", LoRa, SF:%u, BW:%s", frame->meta.LoRa.sf, strBW[min(frame->meta.LoRa.bw, 4)]);
