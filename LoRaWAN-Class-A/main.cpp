@@ -26,7 +26,7 @@ static void taskPeriodicSend(void *) {
   }
 
   f->port = 1;
-  f->type = LoRaMacFrame::UNCONFIRMED;
+  f->type = LoRaMacFrame::CONFIRMED;
   strcpy((char *) f->buf, "Test");
   f->len = strlen((char *) f->buf);
 
@@ -99,6 +99,17 @@ static void eventLoRaWANSendDone(LoRaMac &, LoRaMacFrame *frame) {
     printf("unknown type");
   }
   printf(" frame\n");
+
+  for (uint8_t t = 0; t < 8; t++) {
+    const char *strTxResult[] = {
+      "not started",
+      "success",
+      "no ack",
+      "air busy",
+      "Tx timeout",
+    };
+    printf("- [%u] %s\n", t, strTxResult[min(frame->txResult[t], 4)]);
+  }
   delete frame;
 
   timerSend.startOneShot(10000);
