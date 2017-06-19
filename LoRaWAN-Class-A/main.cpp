@@ -1,7 +1,7 @@
 #include <cox.h>
 #include "LoRaMacKR920.hpp"
 
-LoRaMacKR920 *LoRaWAN;
+LoRaMacKR920 LoRaWAN = LoRaMacKR920(SX1276, 10);
 Timer timerSend;
 
 #define OVER_THE_AIR_ACTIVATION 0
@@ -31,14 +31,14 @@ static void taskPeriodicSend(void *) {
   f->len = strlen((char *) f->buf);
 
   /* Uncomment below lines to specify parameters manually. */
-  // f->freq = 922500000;
-  // f->modulation = Radio::MOD_LORA;
-  // f->meta.LoRa.bw = Radio::BW_125kHz;
-  // f->meta.LoRa.sf = Radio::SF7;
-  // f->power = 10;
-  f->numTrials = 5;
+  f->freq = 922500000;
+  f->modulation = Radio::MOD_LORA;
+  f->meta.LoRa.bw = Radio::BW_125kHz;
+  f->meta.LoRa.sf = Radio::SF8;
+  f->power = 10;
+  f->numTrials = 1;
 
-  error_t err = LoRaWAN->send(f);
+  error_t err = LoRaWAN.send(f);
   printf("* Sending periodic report (%p:%s (%u byte)): %d\n", f, f->buf, f->len, err);
   if (err != ERROR_SUCCESS) {
     delete f;
@@ -67,7 +67,7 @@ static void eventLoRaWANJoin( LoRaMac &,
     }
   } else {
     printf("* Join failed. Retry to join\n");
-    LoRaWAN->beginJoining(devEui, appEui, appKey);
+    LoRaWAN.beginJoining(devEui, appEui, appKey);
   }
 #endif
 }
@@ -306,45 +306,43 @@ void setup() {
 
   timerSend.onFired(taskPeriodicSend, NULL);
 
-  LoRaWAN = new LoRaMacKR920();
-
-  LoRaWAN->begin(SX1276);
+  LoRaWAN.begin();
 
   //! [How to set onSendDone callback]
-  LoRaWAN->onSendDone(eventLoRaWANSendDone);
+  LoRaWAN.onSendDone(eventLoRaWANSendDone);
   //! [How to set onSendDone callback]
 
   //! [How to set onReceive callback]
-  LoRaWAN->onReceive(eventLoRaWANReceive);
+  LoRaWAN.onReceive(eventLoRaWANReceive);
   //! [How to set onReceive callback]
 
-  LoRaWAN->onJoin(eventLoRaWANJoin);
+  LoRaWAN.onJoin(eventLoRaWANJoin);
 
   //! [How to set onJoinRequested callback]
-  LoRaWAN->onJoinRequested(eventLoRaWANJoinRequested);
+  LoRaWAN.onJoinRequested(eventLoRaWANJoinRequested);
   //! [How to set onJoinRequested callback]
 
-  LoRaWAN->onLinkADRReqReceived(eventLoRaWANLinkADRReqReceived);
-  LoRaWAN->onLinkADRAnsSent(eventLoRaWANLinkADRAnsSent);
-  LoRaWAN->onDutyCycleReqReceived(eventLoRaWANDutyCycleReqReceived);
-  LoRaWAN->onDutyCycleAnsSent(eventLoRaWANDutyCycleAnsSent);
-  LoRaWAN->onRxParamSetupReqReceived(eventLoRaWANRxParamSetupReqReceived);
-  LoRaWAN->onRxParamSetupAnsSent(eventLoRaWANRxParamSetupAnsSent);
-  LoRaWAN->onDevStatusReqReceived(eventLoRaWANDevStatusReqReceived);
-  LoRaWAN->onDevStatusAnsSent(eventLoRaWANDevStatusAnsSent);
-  LoRaWAN->onNewChannelReqReceived(eventLoRaWANNewChannelReqReceived);
-  LoRaWAN->onNewChannelAnsSent(eventLoRaWANNewChannelAnsSent);
-  LoRaWAN->onRxTimingSetupReqReceived(eventLoRaWANRxTimingSetupReqReceived);
-  LoRaWAN->onRxTimingSetupAnsSent(eventLoRaWANRxTimingSetupAnsSent);
+  LoRaWAN.onLinkADRReqReceived(eventLoRaWANLinkADRReqReceived);
+  LoRaWAN.onLinkADRAnsSent(eventLoRaWANLinkADRAnsSent);
+  LoRaWAN.onDutyCycleReqReceived(eventLoRaWANDutyCycleReqReceived);
+  LoRaWAN.onDutyCycleAnsSent(eventLoRaWANDutyCycleAnsSent);
+  LoRaWAN.onRxParamSetupReqReceived(eventLoRaWANRxParamSetupReqReceived);
+  LoRaWAN.onRxParamSetupAnsSent(eventLoRaWANRxParamSetupAnsSent);
+  LoRaWAN.onDevStatusReqReceived(eventLoRaWANDevStatusReqReceived);
+  LoRaWAN.onDevStatusAnsSent(eventLoRaWANDevStatusAnsSent);
+  LoRaWAN.onNewChannelReqReceived(eventLoRaWANNewChannelReqReceived);
+  LoRaWAN.onNewChannelAnsSent(eventLoRaWANNewChannelAnsSent);
+  LoRaWAN.onRxTimingSetupReqReceived(eventLoRaWANRxTimingSetupReqReceived);
+  LoRaWAN.onRxTimingSetupAnsSent(eventLoRaWANRxTimingSetupAnsSent);
 
-  LoRaWAN->setPublicNetwork(false);
+  LoRaWAN.setPublicNetwork(false);
 
-  printChannelInformation(*LoRaWAN);
+  printChannelInformation(LoRaWAN);
 
 #if (OVER_THE_AIR_ACTIVATION == 0)
   printf("ABP!\n");
-  LoRaWAN->setABP(NwkSKey, AppSKey, DevAddr);
-  LoRaWAN->setNetworkJoined(true);
+  LoRaWAN.setABP(NwkSKey, AppSKey, DevAddr);
+  LoRaWAN.setNetworkJoined(true);
 
   postTask(taskPeriodicSend, NULL);
 #else
@@ -352,13 +350,13 @@ void setup() {
 
 #if 0
   //! [SKT PseudoAppKey joining]
-  LoRaWAN->setNetworkJoined(false);
-  LoRaWAN->beginJoining(devEui, appEui, appKey);
+  LoRaWAN.setNetworkJoined(false);
+  LoRaWAN.beginJoining(devEui, appEui, appKey);
   //! [SKT PseudoAppKey joining]
 #else
   //! [SKT RealAppKey joining]
-  LoRaWAN->setNetworkJoined(true);
-  LoRaWAN->beginJoining(devEui, appEui, appKey);
+  LoRaWAN.setNetworkJoined(true);
+  LoRaWAN.beginJoining(devEui, appEui, appKey);
   //! [SKT RealAppKey joining]
 #endif
 #endif
