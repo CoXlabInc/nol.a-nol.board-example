@@ -6,12 +6,12 @@ uint32_t sent = 0;
 
 char buf[20];
 int8_t modem;
-Radio::LoRaSF_t sf;
-Radio::LoRaCR_t cr;
-Radio::LoRaBW_t bw;
-int8_t txPower;
-bool iq;
-uint8_t syncword;
+Radio::LoRaSF_t sf = Radio::SF7;
+Radio::LoRaCR_t cr = Radio::CR_4_5;
+Radio::LoRaBW_t bw = Radio::BW_125kHz;
+int8_t txPower = 14;
+bool iq = true;
+uint8_t syncword = 0x12;
 uint32_t freq = 921700000;
 bool packetMode = true;
 
@@ -53,10 +53,7 @@ static void appStart() {
   Serial.stopInput(); // to receive key stroke not string
   Serial.onReceive(eventKeyStroke);
 
-  //System.enablePaBoost(true);
-
   /* All parameters are specified. */
-  SX1276.begin();
 
   if (modem == 0) {
     SX1276.setModemLoRa();
@@ -89,16 +86,15 @@ static void appStart() {
 
 static void inputPacketMode(SerialPort &);
 static void askPacketMode() {
-  printf("Select modme (0: packet, 1: CW) [%d]:", packetMode);
+  printf("Select mode (0: CW, 1: packet) [%d]:", packetMode);
   Serial.onReceive(inputPacketMode);
   Serial.inputKeyboard(buf, sizeof(buf));
 }
 
 static void inputPacketMode(SerialPort &) {
-  if (strlen(buf) == 0 || strcmp(buf, "0") == 0) {
+  if (strlen(buf) == 0 || strcmp(buf, "1") == 0) {
     printf("* Packet mode selected.\n");
-    packetMode = true;
-  } else if (strcmp(buf, "1") == 0) {
+  } else if (strcmp(buf, "0") == 0) {
     printf("* Continuous wave mode selected.\n");
     packetMode = false;
   } else {
@@ -168,7 +164,6 @@ static void askIQ() {
 static void inputIQ(SerialPort &) {
   if (strlen(buf) == 0 || strcmp(buf, "0") == 0) {
     printf("* Normal selected.\n");
-    iq = true;
   } else if (strcmp(buf, "1") == 0) {
     printf("* inverted selected.\n");
     iq = false;
@@ -182,17 +177,16 @@ static void inputIQ(SerialPort &) {
 
 static void inputTxPower(SerialPort &);
 static void askTxPower() {
-  printf("Set Tx power (-1 ~ 20) [-1]:");
+  printf("Set Tx power (-1 ~ 20) [14]:");
   Serial.onReceive(inputTxPower);
   Serial.inputKeyboard(buf, sizeof(buf));
 }
 
 static void inputTxPower(SerialPort &) {
-  if (strlen(buf) == 0) {
-    txPower = -1;
+  if (strlen(buf) != 0) {
+    txPower = (uint8_t) strtol(buf, NULL, 0);
   }
 
-  txPower = (uint8_t) strtol(buf, NULL, 0);
   printf("* %d dBm selected.\n", txPower);
 
   if (txPower < -1 || txPower > 20) {
@@ -206,7 +200,7 @@ static void inputTxPower(SerialPort &) {
 
 static void inputBW(SerialPort &);
 static void askBW() {
-  printf("Set bandwidth (0:125kHz, 1:250kHz, 2:500kHz) [0]:");
+  printf("Set bandwidth (1:125kHz, 2:250kHz, 3:500kHz) [0]:");
   Serial.onReceive(inputBW);
   Serial.inputKeyboard(buf, sizeof(buf));
 }
@@ -214,7 +208,6 @@ static void askBW() {
 static void inputBW(SerialPort &) {
   if (strlen(buf) == 0 || strcmp(buf, "0") == 0) {
     printf("* 125kHz selected.\n");
-    bw = Radio::BW_125kHz;
   } else if (strcmp(buf, "1") == 0) {
     printf("* 250kHz selected.\n");
     bw = Radio::BW_250kHz;
@@ -239,7 +232,6 @@ static void askCR() {
 static void inputCR(SerialPort &) {
   if (strlen(buf) == 0 || strcmp(buf, "1") == 0) {
     printf("* (4/5) selected.\n");
-    cr = Radio::CR_4_5;
   } else if (strcmp(buf, "2") == 0) {
     printf("* (4/6) selected.\n");
     cr = Radio::CR_4_6;
@@ -267,7 +259,6 @@ static void askSF() {
 static void inputSF(SerialPort &) {
   if (strlen(buf) == 0 || strcmp(buf, "7") == 0) {
     printf("* SF7 selected.\n");
-    sf = Radio::SF7;
   } else if (strcmp(buf, "8") == 0) {
     printf("* SF8 selected.\n");
     sf = Radio::SF8;
@@ -301,7 +292,6 @@ static void askModem() {
 static void inputModem(SerialPort &) {
   if (strlen(buf) == 0 || strcmp(buf, "0") == 0) {
     printf("* LoRa selected.\n");
-    modem = 0;
     askSF();
   } else if (strcmp(buf, "1") == 0) {
     printf("* FSK selected.\n");
@@ -314,10 +304,12 @@ static void inputModem(SerialPort &) {
 }
 
 
-void setup(void) {
+void setup() {
   Serial.begin(115200);
   printf("*** [Nol.Board] SX1276 Low-Level Tx Control Example ***\n");
 
+  SX1276.begin();
+  SX1276.sleep();
 #if 1
   Serial.listen();
   askModem();
