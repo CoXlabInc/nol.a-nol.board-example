@@ -4,12 +4,12 @@
 LoRaMacKR920 LoRaWAN = LoRaMacKR920(SX1276, 10);
 Timer timerSend;
 
-#define OVER_THE_AIR_ACTIVATION 0
+#define OVER_THE_AIR_ACTIVATION 1
 
 #if (OVER_THE_AIR_ACTIVATION == 1)
-static const uint8_t devEui[] = "\x14\x0C\x5B\xFF\xFF\x00\x05\xA7";
-static const uint8_t appEui[] = "\x01\x00\x00\x00\x00\x00\x00\x00";
-static const uint8_t appKey[] = "\x0b\xf2\x80\x34\xed\xcb\x14\xe0\x9e\x1f\x94\xea\x73\xe8\xef\x0e";
+static const uint8_t devEui[] = "\x14\x0C\x5B\xFF\xFF\x00\x05\x49";
+static const uint8_t appEui[] = "\x00\x00\x00\x00\x00\x00\x00\x00";
+static const uint8_t appKey[] = "\x51\x14\x98\x40\x7b\x2f\xdc\x1d\x30\x5c\x47\x07\x01\x41\xfb\x8e";
 #else
 
 static const uint8_t NwkSKey[] = "\xa4\x88\x55\xad\xe9\xf8\xf4\x6f\xa0\x94\xb1\x98\x36\xc3\xc0\x86";
@@ -27,16 +27,15 @@ static void taskPeriodicSend(void *) {
 
   f->port = 1;
   f->type = LoRaMacFrame::CONFIRMED;
-  strcpy((char *) f->buf, "Test");
-  f->len = strlen((char *) f->buf);
+  f->len = sprintf((char *) f->buf, "\"Now\":%lu", System.getDateTime());
 
   /* Uncomment below lines to specify parameters manually. */
-  f->freq = 922500000;
-  f->modulation = Radio::MOD_LORA;
-  f->meta.LoRa.bw = Radio::BW_125kHz;
-  f->meta.LoRa.sf = Radio::SF8;
-  f->power = 10;
-  f->numTrials = 1;
+  // f->freq = 922500000;
+  // f->modulation = Radio::MOD_LORA;
+  // f->meta.LoRa.bw = Radio::BW_125kHz;
+  // f->meta.LoRa.sf = Radio::SF8;
+  // f->power = 10;
+  // f->numTrials = 1;
 
   error_t err = LoRaWAN.send(f);
   printf("* Sending periodic report (%p:%s (%u byte)): %d\n", f, f->buf, f->len, err);
@@ -48,14 +47,16 @@ static void taskPeriodicSend(void *) {
 //! [How to send]
 
 //! [How to use onJoin callback for SKT]
-static void eventLoRaWANJoin( LoRaMac &,
-                              bool joined,
-                              const uint8_t *joinedDevEui,
-                              const uint8_t *joinedAppEui,
-                              const uint8_t *joinedAppKey,
-                              const uint8_t *joinedNwkSKey,
-                              const uint8_t *joinedAppSKey,
-                              uint32_t joinedDevAddr) {
+static void eventLoRaWANJoin(
+  LoRaMac &,
+  bool joined,
+  const uint8_t *joinedDevEui,
+  const uint8_t *joinedAppEui,
+  const uint8_t *joinedAppKey,
+  const uint8_t *joinedNwkSKey,
+  const uint8_t *joinedAppSKey,
+  uint32_t joinedDevAddr,
+  const RadioPacket &) {
 #if (OVER_THE_AIR_ACTIVATION == 1)
   if (joined) {
     if (joinedNwkSKey && joinedAppSKey) {
@@ -125,7 +126,7 @@ static void eventLoRaWANReceive(LoRaMac &, const LoRaMacFrame *frame) {
   } else if (frame->modulation == Radio::MOD_FSK) {
     printf(", FSK");
   } else {
-    printf("Unkndown modulation");
+    printf(", Unkndown modulation");
   }
   if (frame->type == LoRaMacFrame::UNCONFIRMED) {
     printf(", Type:UNCONFIRMED,");
@@ -153,7 +154,7 @@ static void eventLoRaWANJoinRequested(LoRaMac &, uint32_t frequencyHz, const LoR
     printf("FSK\n");
   } else if (dr.mod == Radio::MOD_LORA) {
     const char *strLoRaBW[] = { "UNKNOWN", "125kHz", "250kHz", "500kHz" };
-    printf("LoRa, SF:%u, BW:%s\n", dr.param.LoRa.sf, strLoRaBW[dr.param.LoRa.bw]);
+    printf("LoRa, SF:%u, BW:%s)\n", dr.param.LoRa.sf, strLoRaBW[dr.param.LoRa.bw]);
   }
 }
 //! [How to use onJoinRequested callback]
@@ -306,6 +307,18 @@ void setup() {
 
   timerSend.onFired(taskPeriodicSend, NULL);
 
+  uint32_t s1 = System.getDateTime();
+  randomSeed(s1);
+  SX1276.begin();
+  SX1276.setModemFsk();
+  uint32_t f = random(862000000ul, 1020000000ul);
+  SX1276.setChannel(f);
+  SX1276.wakeup();
+  uint32_t s2 = SX1276.getRssi() + ((uint32_t) devEui[5] << 16) + ((uint32_t) devEui[6] << 8) + devEui[7];
+  SX1276.sleep();
+  randomSeed(s2);
+
+  Serial.printf("* Random seed: %lu, %lu, %lu\n", s1, f, s2);
   LoRaWAN.begin();
 
   //! [How to set onSendDone callback]
