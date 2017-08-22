@@ -27,6 +27,8 @@ static void taskPeriodicSend(void *) {
 
   f->port = 1;
   f->type = LoRaMacFrame::CONFIRMED;
+  // f->len = sprintf((char *) f->buf, "\"Current time is %lu", System.getDateTime());
+
   f->len = sprintf((char *) f->buf, "\"Now\":%lu", System.getDateTime());
 
   /* Uncomment below lines to specify parameters manually. */
@@ -43,6 +45,9 @@ static void taskPeriodicSend(void *) {
     delete f;
     timerSend.startOneShot(10000);
   }
+
+  err = LoRaWAN.requestLinkCheck();
+  printf("* Request LinkCheck: %d\n", err);
 }
 //! [How to send]
 
@@ -186,9 +191,8 @@ static void printChannelInformation(LoRaMac &lw) {
   const LoRaMac::DatarateParams_t *dr = lw.getDatarate(lw.getDefDatarate());
   printf(" - Default DR%u:", lw.getDefDatarate());
   if (dr->mod == Radio::MOD_LORA) {
-    printf("LoRa SF%u ", dr->param.LoRa.sf);
     const char *strBW[] = { "Unknown", "125kHz", "250kHz", "500kHz", "Unexpected value" };
-    printf("LoRa, SF%u BW:%s", dr->param.LoRa.sf, strBW[min(dr->param.LoRa.bw, 4)]);
+    printf("LoRa(SF%u BW:%s)\n", dr->param.LoRa.sf, strBW[min(dr->param.LoRa.bw, 4)]);
   } else if (dr->mod == Radio::MOD_FSK) {
     printf("FSK\n");
   } else {
@@ -301,6 +305,16 @@ static void eventLoRaWANRxTimingSetupAnsSent(LoRaMac &lw) {
 }
 //! [eventLoRaWANRxTimingSetupAnsSent]
 
+//! [How to use onLinkChecked callback]
+static void eventLoRaWANLinkChecked(
+  LoRaMac &lw,
+  uint8_t demodMargin,
+  uint8_t numGateways
+) {
+  printf("* LoRaWAN LinkChecked. Demodulation margin: %u dB, # of gateways: %u\n", demodMargin, numGateways);
+}
+//! [How to use onLinkChecked callback]
+
 void setup() {
   Serial.begin(115200);
   Serial.printf("\n*** [Nol.Board] LoRaWAN Class A Example ***\n");
@@ -334,6 +348,10 @@ void setup() {
   //! [How to set onJoinRequested callback]
   LoRaWAN.onJoinRequested(eventLoRaWANJoinRequested);
   //! [How to set onJoinRequested callback]
+
+  //! [How to set onLinkChecked callback]
+  LoRaWAN.onLinkChecked(eventLoRaWANLinkChecked);
+  //! [How to set onLinkChecked callback]
 
   LoRaWAN.onLinkADRReqReceived(eventLoRaWANLinkADRReqReceived);
   LoRaWAN.onLinkADRAnsSent(eventLoRaWANLinkADRAnsSent);
