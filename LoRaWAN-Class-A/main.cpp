@@ -434,7 +434,7 @@ void setup() {
   //! [How to set onLinkChecked callback]
 
   //! [How to set onDeviceTimeAnswered callback]
-  LoRaWAN.onDeviceTimeAnswered(eventLoRaWANDeviceTimeAnswered);
+  LoRaWAN.onDeviceTimeAnswered(eventLoRaWANDeviceTimeAnswered, &System);
   //! [How to set onDeviceTimeAnswered callback]
 
   LoRaWAN.onLinkADRReqReceived(eventLoRaWANLinkADRReqReceived);
