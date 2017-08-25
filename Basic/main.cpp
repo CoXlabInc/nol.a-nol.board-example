@@ -25,22 +25,30 @@ static void togglePulse(void *args) {
   digitalToggle(D1);
 }
 
+//![weekday strings]
 static const char *weekday[] = { "SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT" };
+//![weekday strings]
+
 static void printTask(void *args) {
   printf("[%lu usec] Timer works!\n", micros());
 
+  //![How to use getDateTime]
   struct tm t;
   System.getDateTime(t);
+
+  time_t epoch = System.getDateTime();
   printf(
-    "Now: %u-%u-%u %s %02u:%02u:%02u\n",
+    "Now: %u-%u-%u %s %02u:%02u:%02u (%lu seconds since 1970-01-01)\n",
     t.tm_year + 1900,
     t.tm_mon + 1,
     t.tm_mday,
     weekday[t.tm_wday],
     t.tm_hour,
     t.tm_min,
-    t.tm_sec
+    t.tm_sec,
+    epoch
   );
+  //![How to use getDateTime]
   printf("Supply voltage: %ld mV\n", System.getSupplyVoltage());
 
   //Serial2.printf("[%lu usec] Timer works!\n", micros());
@@ -83,7 +91,9 @@ void setup() {
 
   printf("\n*** [Nol.Board] Basic Functions ***\n");
 
+  //![How to use setTimeDiff]
   System.setTimeDiff(9 * 60); //KST: +9*60 minutes
+  //![How to use setTimeDiff]
 
   struct tm t;
   t.tm_year = 2017 - 1900;  // 2017
