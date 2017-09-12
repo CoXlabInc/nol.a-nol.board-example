@@ -38,7 +38,7 @@ static void printTask(void *args) {
 
   time_t epoch = System.getDateTime();
   printf(
-    "Now: %u-%u-%u %s %02u:%02u:%02u (%lu seconds since 1970-01-01)\n",
+    "* Now: %u-%u-%u %s %02u:%02u:%02u (%lu seconds since 1970-01-01)\n",
     t.tm_year + 1900,
     t.tm_mon + 1,
     t.tm_mday,
@@ -49,7 +49,8 @@ static void printTask(void *args) {
     epoch
   );
   //![How to use getDateTime]
-  printf("Supply voltage: %ld mV\n", System.getSupplyVoltage());
+  printf("* Supply voltage: %ld mV\n", System.getSupplyVoltage());
+  printf("* Random number:%lu\n", random());
 
   //Serial2.printf("[%lu usec] Timer works!\n", micros());
 }
@@ -88,8 +89,7 @@ void setup() {
   // Serial2.begin(57600);
   // Serial2.onReceive(eventSerialRx);
   // Serial2.listen();
-
-  printf("\n*** [Nol.Board] Basic Functions ***\n");
+  Serial.printf("\n*** [Nol.Board] Basic Functions ***\n");
 
   //![How to use setTimeDiff]
   System.setTimeDiff(9 * 60); //KST: +9*60 minutes

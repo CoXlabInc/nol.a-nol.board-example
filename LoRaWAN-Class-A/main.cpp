@@ -4,7 +4,7 @@
 LoRaMacKR920 LoRaWAN = LoRaMacKR920(SX1276, 10);
 Timer timerSend;
 
-#define OVER_THE_AIR_ACTIVATION 1
+#define OVER_THE_AIR_ACTIVATION 0
 
 #if (OVER_THE_AIR_ACTIVATION == 1)
 static const uint8_t devEui[] = "\x14\x0C\x5B\xFF\xFF\x00\x05\x49";
@@ -29,7 +29,11 @@ static void taskPeriodicSend(void *) {
   f->type = LoRaMacFrame::CONFIRMED;
   // f->len = sprintf((char *) f->buf, "\"Current time is %lu", System.getDateTime());
 
-  f->len = sprintf((char *) f->buf, "\"Now\":%lu", System.getDateTime());
+  //f->len = sprintf((char *) f->buf, "\"Now\":%lu", System.getDateTime());
+  f->len = 200;
+  f->buf[0] = 0x30;
+  f->buf[1] = 0x00;
+  f->buf[2] = 0x31;
 
   /* Uncomment below lines to specify parameters manually. */
   // f->freq = 922500000;
@@ -49,8 +53,8 @@ static void taskPeriodicSend(void *) {
   err = LoRaWAN.requestLinkCheck();
   printf("* Request LinkCheck: %d\n", err);
 
-  err = LoRaWAN.requestDeviceTime();
-  printf("* Request DeviceTime: %d\n", err);
+  // err = LoRaWAN.requestDeviceTime();
+  // printf("* Request DeviceTime: %d\n", err);
 }
 //! [How to send]
 
@@ -158,6 +162,18 @@ static void eventLoRaWANReceive(LoRaMac &, const LoRaMacFrame *frame) {
     printf(", Type:UNCONFIRMED,");
   } else if (frame->type == LoRaMacFrame::CONFIRMED) {
     printf(", Type:CONFIRMED,");
+
+    if (LoRaWAN.getNumPendingSendFrames() == 0) {
+      // If there is no pending send frames, send an empty frame to ack.
+      LoRaMacFrame *ackFrame = new LoRaMacFrame(0);
+      if (ackFrame) {
+        error_t err = LoRaWAN.send(ackFrame);
+        if (err != ERROR_SUCCESS) {
+          delete ackFrame;
+        }
+      }
+    }
+
   } else if (frame->type == LoRaMacFrame::MULTICAST) {
     printf(", Type:MULTICAST,");
   } else if (frame->type == LoRaMacFrame::PROPRIETARY) {
@@ -323,7 +339,12 @@ static void eventLoRaWANNewChannelReqReceived(LoRaMac &lw, const uint8_t *payloa
 
 //! [eventLoRaWANNewChannelAnsSent]
 static void eventLoRaWANNewChannelAnsSent(LoRaMac &lw, uint8_t status) {
-  printf("* LoRaWAN NewChannelAns sent with (Datarate range %s and channel frequency %s).\n", (bitRead(status, 1) == 1) ? "OK" : "NOT OK", (bitRead(status, 0) == 1) ? "OK" : "NOT OK");
+  printf(
+    "* LoRaWAN NewChannelAns sent with "
+    "(Datarate range %s and channel frequency %s).\n",
+    (bitRead(status, 1) == 1) ? "OK" : "NOT OK",
+    (bitRead(status, 0) == 1) ? "OK" : "NOT OK"
+  );
 
   for (uint8_t i = 0; i < lw.MaxNumChannels; i++) {
     const LoRaMac::ChannelParams_t *p = lw.getChannel(i);
@@ -393,26 +414,50 @@ static void eventLoRaWANDeviceTimeAnswered(
 }
 //! [How to use onDeviceTimeAnswered callback]
 
+static void eventButtonPressed() {
+  printf("* Button pressed:\n");
+
+  LoRaMacFrame *f = new LoRaMacFrame(20);
+  if (f == NULL) {
+    printf("- Not enough memory\n");
+    return;
+  }
+
+  if (LoRaWAN.getDeviceClass() == LoRaMac::CLASS_A) {
+    printf("- Change class A to C\n");
+    f->len = sprintf((char *) f->buf, "\"class\":\"C\"");
+  } else {
+    printf("- Change class C to A\n");
+    f->len = sprintf((char *) f->buf, "\"class\":\"A\"");
+  }
+
+  f->port = 223;
+  f->type = LoRaMacFrame::CONFIRMED;
+  error_t err = LoRaWAN.send(f);
+  printf("* Sending class configuration message (%s (%u byte)): %d\n", f->buf, f->len, err);
+  if (err == ERROR_SUCCESS) {
+    if (LoRaWAN.getDeviceClass() == LoRaMac::CLASS_A) {
+      LoRaWAN.setDeviceClass(LoRaMac::CLASS_C);
+    } else {
+      LoRaWAN.setDeviceClass(LoRaMac::CLASS_A);
+    }
+  } else {
+    delete f;
+  }
+}
+
 void setup() {
   Serial.begin(115200);
-  Serial.printf("\n*** [Nol.Board] LoRaWAN Class A Example ***\n");
+  Serial.printf("\n*** [Nol.Board] LoRaWAN Class A&C Example ***\n");
+
+  // Button to switch between class A and C.
+  pinMode(D9, INPUT);
+  attachInterrupt(D9, eventButtonPressed, FALLING);
 
   System.setTimeDiff(9 * 60);  // KST
 
   timerSend.onFired(taskPeriodicSend, NULL);
 
-  uint32_t s1 = System.getDateTime();
-  randomSeed(s1);
-  SX1276.begin();
-  SX1276.setModemFsk();
-  uint32_t f = random(862000000ul, 1020000000ul);
-  SX1276.setChannel(f);
-  SX1276.wakeup();
-  uint32_t s2 = SX1276.getRssi() + ((uint32_t) devEui[5] << 16) + ((uint32_t) devEui[6] << 8) + devEui[7];
-  SX1276.sleep();
-  randomSeed(s2);
-
-  Serial.printf("* Random seed: %lu, %lu, %lu\n", s1, f, s2);
   LoRaWAN.begin();
 
   //! [How to set onSendDone callback]
@@ -475,4 +520,7 @@ void setup() {
   //! [SKT RealAppKey joining]
 #endif
 #endif
+
+  pinMode(D4, OUTPUT);
+  digitalWrite(D4, LOW);
 }
