@@ -92,6 +92,13 @@ void setup() {
   // Serial2.listen();
   Serial.printf("\n*** [Nol.Board] Basic Functions ***\n");
 
+  uint8_t eui[8];
+  System.getEUI(eui);
+  Serial.printf(
+    "* EUI-64: %02X-%02X-%02X-%02X-%02X-%02X-%02X-%02X\n",
+    eui[0], eui[1], eui[2], eui[3], eui[4], eui[5], eui[6], eui[7]
+  );
+
   //![How to use setTimeDiff]
   System.setTimeDiff(9 * 60); //KST: +9*60 minutes
   //![How to use setTimeDiff]
