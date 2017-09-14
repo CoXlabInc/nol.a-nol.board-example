@@ -10,6 +10,9 @@ Timer timerSend;
 static uint8_t devEui[8];
 static const uint8_t appEui[] = "\x00\x00\x00\x00\x00\x00\x00\x00";
 static uint8_t appKey[16];
+
+char keyBuf[128];
+Timer timerKeyInput;
 #else
 
 static const uint8_t NwkSKey[] = "\xa4\x88\x55\xad\xe9\xf8\xf4\x6f\xa0\x94\xb1\x98\x36\xc3\xc0\x86";
@@ -457,6 +460,73 @@ static void eventButtonPressed() {
   }
 }
 
+#if (OVER_THE_AIR_ACTIVATION == 1)
+
+static void taskBeginJoin(void *) {
+  Serial.stopListening();
+  Serial.println("* Let's start join!");
+
+#if 0
+  //! [SKT PseudoAppKey joining]
+  LoRaWAN.setNetworkJoined(false);
+  LoRaWAN.beginJoining(devEui, appEui, appKey);
+  //! [SKT PseudoAppKey joining]
+#else
+  //! [SKT RealAppKey joining]
+  LoRaWAN.setNetworkJoined(true);
+  LoRaWAN.beginJoining(devEui, appEui, appKey);
+  //! [SKT RealAppKey joining]
+#endif
+}
+
+static void eventAppKeyInput(SerialPort &) {
+  uint8_t numOctets = strlen(keyBuf);
+  if (numOctets % 2 == 0) {
+    numOctets /= 2;
+    uint8_t *data = (uint8_t *) dynamicMalloc(numOctets);
+    if (data) {
+      char strOctet[3];
+
+      for (uint8_t j = 0; j < numOctets; j++) {
+        strOctet[0] = keyBuf[2 * j];
+        strOctet[1] = keyBuf[2 * j + 1];
+        strOctet[2] = '\0';
+
+        data[j] = strtoul(strOctet, NULL, 16);
+      }
+
+      printf("* New AppKey:");
+      for (uint8_t j = 0; j < numOctets; j++) {
+        printf(" %02X", data[j]);
+      }
+      printf(" (%u byte)\n", numOctets);
+      ConfigMemory.write(data, 0, numOctets);
+      dynamicFree(data);
+      postTask(taskBeginJoin, NULL);
+      return;
+    } else {
+      printf("* Not enough memory\n");
+    }
+  } else {
+    printf("* HEX string length MUST be even number.");
+  }
+
+  Serial.inputKeyboard(keyBuf, sizeof(keyBuf) - 1);
+}
+
+static void eventKeyInput(SerialPort &) {
+  timerKeyInput.stop();
+  while (Serial.available() > 0) {
+    Serial.read();
+  }
+
+  Serial.onReceive(eventAppKeyInput);
+  Serial.inputKeyboard(keyBuf, sizeof(keyBuf) - 1);
+  Serial.println("* Enter a new appKey as a hexadecimal string [ex. 00112233445566778899aabbccddeeff]");
+}
+
+#endif //OVER_THE_AIR_ACTIVATION
+
 void setup() {
   Serial.begin(115200);
   Serial.printf("\n*** [Nol.Board] LoRaWAN Class A&C Example ***\n");
@@ -524,33 +594,30 @@ void setup() {
     devEui[4], devEui[5], devEui[6], devEui[7]
   );
 
-  /*
-    In this example, the AppKey for LoRaWAN OTAA is stored at ConfigMemory.
-    To change the value, use ConfigMemory example app.
-  */
   ConfigMemory.read(appKey, 0, 16);
   Serial.printf(
-    "* AppKey: %02X%02X%02X%02X%02X%02X%02X%02X %02X%02X%02X%02X%02X%02X%02X%02X\n",
+    "* AppKey: %02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X\n",
     appKey[0], appKey[1], appKey[2], appKey[3],
     appKey[4], appKey[5], appKey[6], appKey[7],
     appKey[8], appKey[9], appKey[10], appKey[11],
     appKey[12], appKey[13], appKey[14], appKey[15]
   );
 
-  Serial.printf("Trying to join\n");
+  if (memcmp(appKey, "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF", 16) == 0) {
+    /* The appKey is required to be entered by user.*/
+    Serial.onReceive(eventAppKeyInput);
+    Serial.inputKeyboard(keyBuf, sizeof(keyBuf) - 1);
+    Serial.println("* Enter a new appKey as a hexadecimal string [ex. 00112233445566778899aabbccddeeff]");
+  } else {
+    Serial.println("* Press any key to enter a new appKey in 3 seconds...");
+    timerKeyInput.onFired(taskBeginJoin, NULL);
+    timerKeyInput.startOneShot(3000);
+    Serial.onReceive(eventKeyInput);
+  }
 
-#if 0
-  //! [SKT PseudoAppKey joining]
-  LoRaWAN.setNetworkJoined(false);
-  LoRaWAN.beginJoining(devEui, appEui, appKey);
-  //! [SKT PseudoAppKey joining]
-#else
-  //! [SKT RealAppKey joining]
-  LoRaWAN.setNetworkJoined(true);
-  LoRaWAN.beginJoining(devEui, appEui, appKey);
-  //! [SKT RealAppKey joining]
-#endif
-#endif
+  Serial.listen();
+
+#endif //OVER_THE_AIR_ACTIVATION
 
   pinMode(D4, OUTPUT);
   digitalWrite(D4, LOW);
