@@ -2,7 +2,7 @@
 
 char keyBuf[128];
 
-#define MEMORY ConfigMemory2
+#define MEMORY ConfigMemory
 
 static void printMenu() {
   printf("Usage:\n");
@@ -10,6 +10,7 @@ static void printMenu() {
   printf("* write {addr} {single byte of data}\n");
   printf("* length\n");
   printf("* writestring {addr} {string}\n");
+  printf("* writehex {addr} {hex string}\n");
 }
 
 static uint8_t copyUntil(char *dst, char *src, uint8_t len, char terminator) {
@@ -94,6 +95,42 @@ static void eventSerialReceived(SerialPort &) {
     printf("* writestring \"%s\" to address 0x%lX:\n", data, addr);
 
     MEMORY.write((const uint8_t *) data, addr, strlen(data));
+  } else if (strncmp(keyBuf, "writehex ", 9) == 0) {
+    uint32_t addr;
+
+    i = 9;
+    i += copyUntil(tmpBuf, &keyBuf[i], 255 - i, ' ');
+    addr = strtoul(tmpBuf, NULL, 0);
+
+    const char *strOctets = keyBuf + i;
+    uint8_t numOctets = strlen(strOctets);
+    if (numOctets % 2 == 0) {
+      numOctets /= 2;
+      uint8_t *data = (uint8_t *) dynamicMalloc(numOctets);
+      if (data) {
+        char strOctet[3];
+
+        for (uint8_t j = 0; j < numOctets; j++) {
+          strOctet[0] = strOctets[2 * j];
+          strOctet[1] = strOctets[2 * j + 1];
+          strOctet[2] = '\0';
+
+          data[j] = strtoul(strOctet, NULL, 16);
+        }
+
+        printf("* HEX to be written:");
+        for (uint8_t j = 0; j < numOctets; j++) {
+          printf(" %02X", data[j]);
+        }
+        printf(" (%u byte)\n", numOctets);
+        MEMORY.write(data, addr, numOctets);
+        dynamicFree(data);
+      } else {
+        printf("* Not enough memory\n");
+      }
+    } else {
+      printf("* HEX string length MUST be even number.");
+    }
   } else {
     printf("* Unknown command\n");
   }
