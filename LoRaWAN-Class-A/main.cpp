@@ -4,12 +4,12 @@
 LoRaMacKR920 LoRaWAN = LoRaMacKR920(SX1276, 10);
 Timer timerSend;
 
-#define OVER_THE_AIR_ACTIVATION 0
+#define OVER_THE_AIR_ACTIVATION 1
 
 #if (OVER_THE_AIR_ACTIVATION == 1)
-static const uint8_t devEui[] = "\x14\x0C\x5B\xFF\xFF\x00\x05\x49";
+static uint8_t devEui[8];
 static const uint8_t appEui[] = "\x00\x00\x00\x00\x00\x00\x00\x00";
-static const uint8_t appKey[] = "\x51\x14\x98\x40\x7b\x2f\xdc\x1d\x30\x5c\x47\x07\x01\x41\xfb\x8e";
+static uint8_t appKey[16];
 #else
 
 static const uint8_t NwkSKey[] = "\xa4\x88\x55\xad\xe9\xf8\xf4\x6f\xa0\x94\xb1\x98\x36\xc3\xc0\x86";
@@ -27,13 +27,7 @@ static void taskPeriodicSend(void *) {
 
   f->port = 1;
   f->type = LoRaMacFrame::CONFIRMED;
-  // f->len = sprintf((char *) f->buf, "\"Current time is %lu", System.getDateTime());
-
-  //f->len = sprintf((char *) f->buf, "\"Now\":%lu", System.getDateTime());
-  f->len = 200;
-  f->buf[0] = 0x30;
-  f->buf[1] = 0x00;
-  f->buf[2] = 0x31;
+  f->len = sprintf((char *) f->buf, "\"Now\":%lu", System.getDateTime());
 
   /* Uncomment below lines to specify parameters manually. */
   // f->freq = 922500000;
@@ -89,7 +83,8 @@ static void eventLoRaWANJoin(
 //! [How to use onSendDone callback]
 static void eventLoRaWANSendDone(LoRaMac &, LoRaMacFrame *frame) {
   printf(
-    "* Send done(%d): destined for port:%u, fCnt:0x%08lX, Freq:%lu Hz, Power:%d dBm, # of Tx:%u, ",
+    "* Send done(%d): destined for port:%u, fCnt:0x%08lX, Freq:%lu Hz, "
+    "Power:%d dBm, # of Tx:%u, ",
     frame->result,
     frame->port,
     frame->fCnt,
@@ -151,8 +146,13 @@ static void eventLoRaWANReceive(LoRaMac &, const LoRaMacFrame *frame) {
   );
 
   if (frame->modulation == Radio::MOD_LORA) {
-    const char *strBW[] = { "Unknown", "125kHz", "250kHz", "500kHz", "Unexpected value" };
-    printf(", LoRa, SF:%u, BW:%s", frame->meta.LoRa.sf, strBW[min(frame->meta.LoRa.bw, 4)]);
+    const char *strBW[] = {
+      "Unknown", "125kHz", "250kHz", "500kHz", "Unexpected value"
+    };
+    printf(
+      ", LoRa, SF:%u, BW:%s",
+      frame->meta.LoRa.sf, strBW[min(frame->meta.LoRa.bw, 4)]
+    );
   } else if (frame->modulation == Radio::MOD_FSK) {
     printf(", FSK");
   } else {
@@ -190,7 +190,9 @@ static void eventLoRaWANReceive(LoRaMac &, const LoRaMacFrame *frame) {
 //! [How to use onReceive callback]
 
 //! [How to use onJoinRequested callback]
-static void eventLoRaWANJoinRequested(LoRaMac &, uint32_t frequencyHz, const LoRaMac::DatarateParams_t &dr) {
+static void eventLoRaWANJoinRequested(
+  LoRaMac &, uint32_t frequencyHz, const LoRaMac::DatarateParams_t &dr
+) {
   printf("* JoinRequested(Frequency: %lu Hz, Modulation: ", frequencyHz);
   if (dr.mod == Radio::MOD_FSK) {
     printf("FSK\n");
@@ -256,7 +258,9 @@ static void eventLoRaWANLinkADRAnsSent(LoRaMac &l, uint8_t status) {
 //! [eventLoRaWANLinkADRAnsSent]
 
 //! [eventLoRaWANDutyCycleReqReceived]
-static void eventLoRaWANDutyCycleReqReceived(LoRaMac &lw, const uint8_t *payload) {
+static void eventLoRaWANDutyCycleReqReceived(
+  LoRaMac &lw, const uint8_t *payload
+) {
   printf("* LoRaWAN DutyCycleReq received: [");
   for (uint8_t i = 0; i < 1; i++) {
     printf(" %02X", payload[i]);
@@ -328,7 +332,9 @@ static void eventLoRaWANDevStatusAnsSent(
 //! [eventLoRaWANDevStatusAnsSent]
 
 //! [eventLoRaWANNewChannelReqReceived]
-static void eventLoRaWANNewChannelReqReceived(LoRaMac &lw, const uint8_t *payload) {
+static void eventLoRaWANNewChannelReqReceived(
+  LoRaMac &lw, const uint8_t *payload
+) {
   printf("* LoRaWAN NewChannelReq received [");
   for (uint8_t i = 0; i < 5; i++) {
     printf(" %02X", payload[i]);
@@ -408,8 +414,10 @@ static void eventLoRaWANDeviceTimeAnswered(
     "- Adjusted local time: %u-%u-%u %02u:%02u:%02u\n"
     "- Adjusted UTC time: %u-%u-%u %02u:%02u:%02u\n",
     tSeconds, tFracSeconds,
-    tLocal.tm_year + 1900, tLocal.tm_mon + 1, tLocal.tm_mday, tLocal.tm_hour, tLocal.tm_min, tLocal.tm_sec,
-    tUtc.tm_year + 1900, tUtc.tm_mon + 1, tUtc.tm_mday, tUtc.tm_hour, tUtc.tm_min, tUtc.tm_sec
+    tLocal.tm_year + 1900, tLocal.tm_mon + 1, tLocal.tm_mday,
+    tLocal.tm_hour, tLocal.tm_min, tLocal.tm_sec,
+    tUtc.tm_year + 1900, tUtc.tm_mon + 1, tUtc.tm_mday,
+    tUtc.tm_hour, tUtc.tm_min, tUtc.tm_sec
   );
 }
 //! [How to use onDeviceTimeAnswered callback]
@@ -434,7 +442,10 @@ static void eventButtonPressed() {
   f->port = 223;
   f->type = LoRaMacFrame::CONFIRMED;
   error_t err = LoRaWAN.send(f);
-  printf("* Sending class configuration message (%s (%u byte)): %d\n", f->buf, f->len, err);
+  printf(
+    "* Sending class configuration message (%s (%u byte)): %d\n",
+    f->buf, f->len, err
+  );
   if (err == ERROR_SUCCESS) {
     if (LoRaWAN.getDeviceClass() == LoRaMac::CLASS_A) {
       LoRaWAN.setDeviceClass(LoRaMac::CLASS_C);
@@ -506,7 +517,27 @@ void setup() {
 
   postTask(taskPeriodicSend, NULL);
 #else
-  printf("Trying to join\n");
+  System.getEUI(devEui);
+  Serial.printf(
+    "* DevEUI: %02X-%02X-%02X-%02X-%02X-%02X-%02X-%02X\n",
+    devEui[0], devEui[1], devEui[2], devEui[3],
+    devEui[4], devEui[5], devEui[6], devEui[7]
+  );
+
+  /*
+    In this example, the AppKey for LoRaWAN OTAA is stored at ConfigMemory.
+    To change the value, use ConfigMemory example app.
+  */
+  ConfigMemory.read(appKey, 0, 16);
+  Serial.printf(
+    "* AppKey: %02X%02X%02X%02X%02X%02X%02X%02X %02X%02X%02X%02X%02X%02X%02X%02X\n",
+    appKey[0], appKey[1], appKey[2], appKey[3],
+    appKey[4], appKey[5], appKey[6], appKey[7],
+    appKey[8], appKey[9], appKey[10], appKey[11],
+    appKey[12], appKey[13], appKey[14], appKey[15]
+  );
+
+  Serial.printf("Trying to join\n");
 
 #if 0
   //! [SKT PseudoAppKey joining]
