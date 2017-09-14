@@ -52,7 +52,8 @@ static void printTask(void *args) {
   printf("* Supply voltage: %ld mV\n", System.getSupplyVoltage());
   printf("* Random number:%lu\n", random());
 
-  //Serial2.printf("[%lu usec] Timer works!\n", micros());
+  Serial2.printf("[%lu usec] Timer works!\n", micros());
+  Serial2.write("012345\r\n");
 }
 
 static void eventDateTimeAlarm() {
@@ -86,7 +87,7 @@ void setup() {
   Serial.onReceive(eventSerialRx);
   Serial.listen();
 
-  // Serial2.begin(57600);
+  Serial2.begin(115200);
   // Serial2.onReceive(eventSerialRx);
   // Serial2.listen();
   Serial.printf("\n*** [Nol.Board] Basic Functions ***\n");
