@@ -1,7 +1,7 @@
 #include <cox.h>
-#include "LoRaMacKR920.hpp"
+#include "LoRaMacKR920SKT.hpp"
 
-LoRaMacKR920 LoRaWAN = LoRaMacKR920(SX1276, 10);
+LoRaMacKR920SKT LoRaWAN = LoRaMacKR920SKT(SX1276, 10);
 Timer timerSend;
 
 #define OVER_THE_AIR_ACTIVATION 1
@@ -84,8 +84,8 @@ static void eventLoRaWANJoin(
 //! [How to use onJoin callback for SKT]
 
 //! [How to use onSendDone callback]
-static void eventLoRaWANSendDone(LoRaMac &, LoRaMacFrame *frame) {
-  printf(
+static void eventLoRaWANSendDone(LoRaMac &lw, LoRaMacFrame *frame) {
+  Serial.printf(
     "* Send done(%d): destined for port:%u, fCnt:0x%08lX, Freq:%lu Hz, "
     "Power:%d dBm, # of Tx:%u, ",
     frame->result,
@@ -103,24 +103,26 @@ static void eventLoRaWANSendDone(LoRaMac &, LoRaMacFrame *frame) {
     if (frame->meta.LoRa.bw > 3) {
       frame->meta.LoRa.bw = (Radio::LoRaBW_t) 4;
     }
-    printf("LoRa, SF:%u, BW:%s, ", frame->meta.LoRa.sf, strBW[frame->meta.LoRa.bw]);
+    Serial.printf(
+      "LoRa, SF:%u, BW:%s, ", frame->meta.LoRa.sf, strBW[frame->meta.LoRa.bw]
+    );
   } else if (frame->modulation == Radio::MOD_FSK) {
-    printf("FSK, ");
+    Serial.printf("FSK, ");
   } else {
-    printf("Unkndown modulation, ");
+    Serial.printf("Unkndown modulation, ");
   }
   if (frame->type == LoRaMacFrame::UNCONFIRMED) {
-    printf("UNCONFIRMED");
+    Serial.printf("UNCONFIRMED");
   } else if (frame->type == LoRaMacFrame::CONFIRMED) {
-    printf("CONFIRMED");
+    Serial.printf("CONFIRMED");
   } else if (frame->type == LoRaMacFrame::MULTICAST) {
-    printf("MULTICAST (error)");
+    Serial.printf("MULTICAST (error)");
   } else if (frame->type == LoRaMacFrame::PROPRIETARY) {
-    printf("PROPRIETARY");
+    Serial.printf("PROPRIETARY");
   } else {
-    printf("unknown type");
+    Serial.printf("unknown type");
   }
-  printf(" frame\n");
+  Serial.printf(" frame\n");
 
   for (uint8_t t = 0; t < 8; t++) {
     const char *strTxResult[] = {
@@ -130,7 +132,7 @@ static void eventLoRaWANSendDone(LoRaMac &, LoRaMacFrame *frame) {
       "air busy",
       "Tx timeout",
     };
-    printf("- [%u] %s\n", t, strTxResult[min(frame->txResult[t], 4)]);
+    Serial.printf("- [%u] %s\n", t, strTxResult[min(frame->txResult[t], 4)]);
   }
   delete frame;
 
@@ -139,9 +141,9 @@ static void eventLoRaWANSendDone(LoRaMac &, LoRaMacFrame *frame) {
 //! [How to use onSendDone callback]
 
 //! [How to use onReceive callback]
-static void eventLoRaWANReceive(LoRaMac &, const LoRaMacFrame *frame) {
-  printf(
-    "* Received: destined for port:%u, fCnt:0x%08lX, Freq:%lu Hz, RSSI:%d dB",
+static void eventLoRaWANReceive(LoRaMac &lw, const LoRaMacFrame *frame) {
+  Serial.printf(
+    "* Received a frame. Destined for port:%u, fCnt:0x%08lX, Freq:%lu Hz, RSSI:%d dB",
     frame->port,
     frame->fCnt,
     frame->freq,
@@ -152,19 +154,19 @@ static void eventLoRaWANReceive(LoRaMac &, const LoRaMacFrame *frame) {
     const char *strBW[] = {
       "Unknown", "125kHz", "250kHz", "500kHz", "Unexpected value"
     };
-    printf(
+    Serial.printf(
       ", LoRa, SF:%u, BW:%s",
       frame->meta.LoRa.sf, strBW[min(frame->meta.LoRa.bw, 4)]
     );
   } else if (frame->modulation == Radio::MOD_FSK) {
-    printf(", FSK");
+    Serial.printf(", FSK");
   } else {
-    printf(", Unkndown modulation");
+    Serial.printf(", Unkndown modulation");
   }
   if (frame->type == LoRaMacFrame::UNCONFIRMED) {
-    printf(", Type:UNCONFIRMED,");
+    Serial.printf(", Type:UNCONFIRMED,");
   } else if (frame->type == LoRaMacFrame::CONFIRMED) {
-    printf(", Type:CONFIRMED,");
+    Serial.printf(", Type:CONFIRMED,");
 
     if (LoRaWAN.getNumPendingSendFrames() == 0) {
       // If there is no pending send frames, send an empty frame to ack.
@@ -178,17 +180,17 @@ static void eventLoRaWANReceive(LoRaMac &, const LoRaMacFrame *frame) {
     }
 
   } else if (frame->type == LoRaMacFrame::MULTICAST) {
-    printf(", Type:MULTICAST,");
+    Serial.printf(", Type:MULTICAST,");
   } else if (frame->type == LoRaMacFrame::PROPRIETARY) {
-    printf(", Type:PROPRIETARY,");
+    Serial.printf(", Type:PROPRIETARY,");
   } else {
-    printf(", unknown type,");
+    Serial.printf(", unknown type,");
   }
 
   for (uint8_t i = 0; i < frame->len; i++) {
-    printf(" %02X", frame->buf[i]);
+    Serial.printf(" %02X", frame->buf[i]);
   }
-  printf("\n");
+  Serial.println();
 }
 //! [How to use onReceive callback]
 
@@ -549,7 +551,9 @@ void setup() {
   LoRaWAN.onReceive(eventLoRaWANReceive);
   //! [How to set onReceive callback]
 
+  //! [How to set onJoin callback]
   LoRaWAN.onJoin(eventLoRaWANJoin);
+  //! [How to set onJoin callback]
 
   //! [How to set onJoinRequested callback]
   LoRaWAN.onJoinRequested(eventLoRaWANJoinRequested);
