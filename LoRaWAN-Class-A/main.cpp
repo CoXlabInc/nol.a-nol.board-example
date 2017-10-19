@@ -142,13 +142,18 @@ static void eventLoRaWANSendDone(LoRaMac &lw, LoRaMacFrame *frame) {
 
 //! [How to use onReceive callback]
 static void eventLoRaWANReceive(LoRaMac &lw, const LoRaMacFrame *frame) {
-  Serial.printf(
-    "* Received a frame. Destined for port:%u, fCnt:0x%08lX, Freq:%lu Hz, RSSI:%d dB",
-    frame->port,
-    frame->fCnt,
-    frame->freq,
-    frame->power
-  );
+  Serial.print("* Received a frame. Destined for port:");
+  Serial.print(frame->port);
+  Serial.print(", fCnt:0x");
+  Serial.print(frame->fCnt, HEX);
+  if (lw.getDownLinkCounter() != 0 && lw.getDownLinkCounter() == frame->fCnt) {
+    Serial.print(" (duplicate)");
+  }
+  Serial.print(", Freq:");
+  Serial.print(frame->freq);
+  Serial.print(" Hz, RSSI:");
+  Serial.print(frame->power);
+  Serial.print(" dB");
 
   if (frame->modulation == Radio::MOD_LORA) {
     const char *strBW[] = {
@@ -164,9 +169,9 @@ static void eventLoRaWANReceive(LoRaMac &lw, const LoRaMacFrame *frame) {
     Serial.printf(", Unkndown modulation");
   }
   if (frame->type == LoRaMacFrame::UNCONFIRMED) {
-    Serial.printf(", Type:UNCONFIRMED,");
+    Serial.printf(", Type:UNCONFIRMED");
   } else if (frame->type == LoRaMacFrame::CONFIRMED) {
-    Serial.printf(", Type:CONFIRMED,");
+    Serial.printf(", Type:CONFIRMED");
 
     if (LoRaWAN.getNumPendingSendFrames() == 0) {
       // If there is no pending send frames, send an empty frame to ack.
@@ -180,15 +185,18 @@ static void eventLoRaWANReceive(LoRaMac &lw, const LoRaMacFrame *frame) {
     }
 
   } else if (frame->type == LoRaMacFrame::MULTICAST) {
-    Serial.printf(", Type:MULTICAST,");
+    Serial.printf(", Type:MULTICAST");
   } else if (frame->type == LoRaMacFrame::PROPRIETARY) {
-    Serial.printf(", Type:PROPRIETARY,");
+    Serial.printf(", Type:PROPRIETARY");
   } else {
-    Serial.printf(", unknown type,");
+    Serial.printf(", unknown type");
   }
 
-  for (uint8_t i = 0; i < frame->len; i++) {
-    Serial.printf(" %02X", frame->buf[i]);
+  if (frame->len > 0) {
+    Serial.println(", ");
+    for (uint8_t i = 0; i < frame->len; i++) {
+      Serial.printf(" %02X", frame->buf[i]);
+    }
   }
   Serial.println();
 }
@@ -483,34 +491,28 @@ static void taskBeginJoin(void *) {
 
 static void eventAppKeyInput(SerialPort &) {
   uint8_t numOctets = strlen(keyBuf);
-  if (numOctets % 2 == 0) {
+  if (numOctets == 32) {
     numOctets /= 2;
-    uint8_t *data = (uint8_t *) dynamicMalloc(numOctets);
-    if (data) {
-      char strOctet[3];
+    char strOctet[3];
 
-      for (uint8_t j = 0; j < numOctets; j++) {
-        strOctet[0] = keyBuf[2 * j];
-        strOctet[1] = keyBuf[2 * j + 1];
-        strOctet[2] = '\0';
+    for (uint8_t j = 0; j < numOctets; j++) {
+      strOctet[0] = keyBuf[2 * j];
+      strOctet[1] = keyBuf[2 * j + 1];
+      strOctet[2] = '\0';
 
-        data[j] = strtoul(strOctet, NULL, 16);
-      }
-
-      printf("* New AppKey:");
-      for (uint8_t j = 0; j < numOctets; j++) {
-        printf(" %02X", data[j]);
-      }
-      printf(" (%u byte)\n", numOctets);
-      ConfigMemory.write(data, 0, numOctets);
-      dynamicFree(data);
-      postTask(taskBeginJoin, NULL);
-      return;
-    } else {
-      printf("* Not enough memory\n");
+      appKey[j] = strtoul(strOctet, NULL, 16);
     }
+
+    printf("* New AppKey:");
+    for (uint8_t j = 0; j < numOctets; j++) {
+      printf(" %02X", appKey[j]);
+    }
+    printf(" (%u byte)\n", numOctets);
+    ConfigMemory.write(appKey, 0, numOctets);
+    postTask(taskBeginJoin, NULL);
+    return;
   } else {
-    printf("* HEX string length MUST be even number.");
+    printf("* HEX string length MUST be 32-byte.");
   }
 
   Serial.inputKeyboard(keyBuf, sizeof(keyBuf) - 1);
@@ -524,7 +526,10 @@ static void eventKeyInput(SerialPort &) {
 
   Serial.onReceive(eventAppKeyInput);
   Serial.inputKeyboard(keyBuf, sizeof(keyBuf) - 1);
-  Serial.println("* Enter a new appKey as a hexadecimal string [ex. 00112233445566778899aabbccddeeff]");
+  Serial.println(
+    "* Enter a new appKey as a hexadecimal string "
+    "[ex. 00112233445566778899aabbccddeeff]"
+  );
 }
 
 #endif //OVER_THE_AIR_ACTIVATION
@@ -611,7 +616,10 @@ void setup() {
     /* The appKey is required to be entered by user.*/
     Serial.onReceive(eventAppKeyInput);
     Serial.inputKeyboard(keyBuf, sizeof(keyBuf) - 1);
-    Serial.println("* Enter a new appKey as a hexadecimal string [ex. 00112233445566778899aabbccddeeff]");
+    Serial.println(
+      "* Enter a new appKey as a hexadecimal string "
+      "[ex. 00112233445566778899aabbccddeeff]"
+    );
   } else {
     Serial.println("* Press any key to enter a new appKey in 3 seconds...");
     timerKeyInput.onFired(taskBeginJoin, NULL);
