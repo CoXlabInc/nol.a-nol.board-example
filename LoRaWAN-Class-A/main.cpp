@@ -142,13 +142,16 @@ static void eventLoRaWANSendDone(LoRaMac &lw, LoRaMacFrame *frame) {
 
 //! [How to use onReceive callback]
 static void eventLoRaWANReceive(LoRaMac &lw, const LoRaMacFrame *frame) {
+  static uint32_t fCntDownPrev = 0;
+
   Serial.print("* Received a frame. Destined for port:");
   Serial.print(frame->port);
   Serial.print(", fCnt:0x");
   Serial.print(frame->fCnt, HEX);
-  if (lw.getDownLinkCounter() != 0 && lw.getDownLinkCounter() == frame->fCnt) {
+  if (fCntDownPrev != 0 && fCntDownPrev == frame->fCnt) {
     Serial.print(" (duplicate)");
   }
+  fCntDownPrev = frame->fCnt;
   Serial.print(", Freq:");
   Serial.print(frame->freq);
   Serial.print(" Hz, RSSI:");
