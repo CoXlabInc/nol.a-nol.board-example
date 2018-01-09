@@ -91,6 +91,7 @@ void setup() {
   // Serial2.onReceive(eventSerialRx);
   // Serial2.listen();
   Serial.printf("\n*** [Nol.Board] Basic Functions ***\n");
+  Serial.printf("* Nol.A-SDK Version: %u.%u.%u\n", NOLA_VER_MAJOR, NOLA_VER_MINOR, NOLA_VER_PATCH);
 
   uint8_t eui[8];
   System.getEUI(eui);
