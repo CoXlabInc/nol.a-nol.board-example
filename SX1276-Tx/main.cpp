@@ -12,13 +12,14 @@ Radio::LoRaBW_t bw = Radio::BW_125kHz;
 int8_t txPower = 14;
 bool iq = true;
 uint8_t syncword = 0x12;
-uint32_t freq = 921700000;
+uint32_t freq = 921900000;
 bool packetMode = true;
 
 static void eventOnTxDone(void *ctx, bool success) {
   printf("[%lu us] Tx %s!\n", micros(), (success) ? "SUCCESS" : "FAIL");
   delete frame;
   frame = NULL;
+  SX1276.sleep();
 }
 
 static void sendTask(void *args) {
@@ -39,6 +40,7 @@ static void sendTask(void *args) {
   frame->buf[0] = (sent >> 8);
   frame->buf[1] = (sent & 0xff);
 
+  SX1276.wakeup();
   SX1276.transmit(frame);
 
   printf("[%lu us] %lu Tx started...\n", micros(), sent);
@@ -75,7 +77,6 @@ static void appStart() {
 
   if (packetMode) {
     SX1276.onTxDone(eventOnTxDone, NULL);
-    SX1276.wakeup();
 
     sendTimer.onFired(sendTask, NULL);
     sendTimer.startPeriodic(5000);
@@ -303,7 +304,6 @@ static void inputModem(SerialPort &) {
   }
 }
 
-
 void setup() {
   Serial.begin(115200);
   printf("*** [Nol.Board] SX1276 Low-Level Tx Control Example ***\n");
@@ -316,8 +316,8 @@ void setup() {
 #else
   modem = 0;
   txPower = 14;
-  cr = Radio::CR_4_8;
-  sf = Radio::SF12;
+  cr = Radio::CR_4_5;
+  sf = Radio::SF7;
   bw = Radio::BW_125kHz;
   iq = true;
   syncword = 0x12;
