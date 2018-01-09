@@ -11,6 +11,7 @@ Radio::LoRaBW_t bw;
 bool iq;
 uint8_t syncword;
 uint32_t freq = 917100000;
+int32_t rssiSum = 0;
 
 static void printRxDone(void *args) {
   static uint16_t success = 0;
@@ -24,8 +25,9 @@ static void printRxDone(void *args) {
   uint16_t i;
   for (i = 0; i < rxFrame->len; i++)
     printf("%02X ", rxFrame->buf[i]);
-  printf("\b), # of Rx:%u\n", (rxFrame->result == RadioPacket::SUCCESS) ? ++success : success);
-
+  printf("\b), # of Rx:%u, ", (rxFrame->result == RadioPacket::SUCCESS) ? ++success : success);
+  rssiSum += rxFrame->power;
+  printf("average of RSSI:%ld\n", rssiSum / success);
   delete rxFrame;
 }
 
