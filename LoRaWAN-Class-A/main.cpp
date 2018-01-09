@@ -101,7 +101,7 @@ static void eventLoRaWANJoin(
 #else
 //! [How to use onJoin callback]
 static void eventLoRaWANJoin(
-  LoRaMac &,
+  LoRaMac &lw,
   bool joined,
   const uint8_t *joinedDevEui,
   const uint8_t *joinedAppEui,
@@ -116,7 +116,7 @@ static void eventLoRaWANJoin(
     postTask(taskPeriodicSend, NULL);
   } else {
     Serial.println("* Joining failed. Retry to join.");
-    LoRaWAN.beginJoining(devEui, appEui, appKey);
+    lw.beginJoining(devEui, appEui, appKey);
   }
 }
 //! [How to use onJoin callback]
