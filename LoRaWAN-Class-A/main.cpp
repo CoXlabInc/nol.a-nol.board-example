@@ -1,6 +1,6 @@
 #include <cox.h>
 
-#define LORAWAN_SKT 1
+#define LORAWAN_SKT 0
 #if (LORAWAN_SKT == 1)
 #include "LoRaMacKR920SKT.hpp"
 LoRaMacKR920SKT LoRaWAN = LoRaMacKR920SKT(SX1276, 10);
@@ -43,7 +43,7 @@ static void taskPeriodicSend(void *) {
   // f->freq = 922500000;
   // f->modulation = Radio::MOD_LORA;
   // f->meta.LoRa.bw = Radio::BW_125kHz;
-  // f->meta.LoRa.sf = Radio::SF8;
+  // f->meta.LoRa.sf = Radio::SF7;
   // f->power = 10;
   // f->numTrials = 1;
 
@@ -283,8 +283,8 @@ static void printChannelInformation(LoRaMac &lw) {
   //! [getChannel]
 
   //! [getDatarate]
-  const LoRaMac::DatarateParams_t *dr = lw.getDatarate(lw.getDefDatarate());
-  printf(" - Default DR%u:", lw.getDefDatarate());
+  const LoRaMac::DatarateParams_t *dr = lw.getDatarate(lw.getCurrentDatarateIndex());
+  printf(" - Default DR%u:", lw.getCurrentDatarateIndex());
   if (dr->mod == Radio::MOD_LORA) {
     const char *strBW[] = {
       "Unknown", "125kHz", "250kHz", "500kHz", "Unexpected value"
@@ -301,15 +301,25 @@ static void printChannelInformation(LoRaMac &lw) {
   }
   //! [getDatarate]
 
+  //! [getTxPower]
+  int8_t power = lw.getTxPower(lw.getCurrentTxPowerIndex());
+  printf(" - Default Tx: ");
+  if (power == -127) {
+    printf("unexpected value\n");
+  } else {
+    printf("%d dBm\n", power);
+  }
+  //! [getTxPower]
+
   printf(
     " - # of repetitions of unconfirmed uplink frames: %u\n",
     lw.getNumRepetitions()
   );
 }
 
-static void eventLoRaWANLinkADRAnsSent(LoRaMac &l, uint8_t status) {
+static void eventLoRaWANLinkADRAnsSent(LoRaMac &lw, uint8_t status) {
   printf("* LoRaWAN LinkADRAns sent with status 0x%02X.\n", status);
-  printChannelInformation(l);
+  printChannelInformation(lw);
 }
 //! [eventLoRaWANLinkADRAnsSent]
 
@@ -515,22 +525,32 @@ static void eventButtonPressed() {
 
 #if (OVER_THE_AIR_ACTIVATION == 1)
 
+#if (LORAWAN_SKT == 1)
 static void taskBeginJoin(void *) {
   Serial.stopListening();
-  Serial.println("* Let's start join!");
 
 #if 0
+  Serial.println("* Let's start PseudoAppKey join!");
   //! [SKT PseudoAppKey joining]
   LoRaWAN.setNetworkJoined(false);
   LoRaWAN.beginJoining(devEui, appEui, appKey);
   //! [SKT PseudoAppKey joining]
 #else
+  Serial.println("* Let's start RealAppKey join!");
   //! [SKT RealAppKey joining]
   LoRaWAN.setNetworkJoined(true);
   LoRaWAN.beginJoining(devEui, appEui, appKey);
   //! [SKT RealAppKey joining]
 #endif
 }
+#else
+static void taskBeginJoin(void *) {
+  Serial.stopListening();
+  Serial.println("* Let's start join!");
+  LoRaWAN.setCurrentDatarateIndex(1); //SF8
+  LoRaWAN.beginJoining(devEui, appEui, appKey);
+}
+#endif
 
 static void eventAppKeyInput(SerialPort &) {
   uint8_t numOctets = strlen(keyBuf);
