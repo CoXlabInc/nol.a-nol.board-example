@@ -184,19 +184,16 @@ static void eventLoRaWANSendDone(LoRaMac &lw, LoRaMacFrame *frame) {
 static void eventLoRaWANReceive(LoRaMac &lw, const LoRaMacFrame *frame) {
   static uint32_t fCntDownPrev = 0;
 
-  Serial.print("* Received a frame. Destined for port:");
-  Serial.print(frame->port);
-  Serial.print(", fCnt:0x");
-  Serial.print(frame->fCnt, HEX);
+  Serial.printf(
+    "* Received a frame. Destined for port:%u, fCnt:0x%X",
+    frame->port, frame->fCnt
+  );
+
   if (fCntDownPrev != 0 && fCntDownPrev == frame->fCnt) {
     Serial.print(" (duplicate)");
   }
   fCntDownPrev = frame->fCnt;
-  Serial.print(", Freq:");
-  Serial.print(frame->freq);
-  Serial.print(" Hz, RSSI:");
-  Serial.print(frame->power);
-  Serial.print(" dB");
+  Serial.printf(", Freq:%lu Hz, RSSI: %d dB", frame->freq, frame->power);
 
   if (frame->modulation == Radio::MOD_LORA) {
     const char *strBW[] = {
@@ -610,6 +607,10 @@ void setup() {
   timerSend.onFired(taskPeriodicSend, NULL);
 
   LoRaWAN.begin();
+  LoRaMac::DatarateParams_t *dr = LoRaWAN.getDatarate(2);
+  if (dr) {
+    printf("SF:%u, BW:%u\n", dr->param.LoRa.sf, dr->param.LoRa.bw);
+  }
 
   //! [How to set onSendDone callback]
   LoRaWAN.onSendDone(eventLoRaWANSendDone);

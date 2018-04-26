@@ -36,9 +36,10 @@ static void printTask(void *args) {
   struct tm t;
   System.getDateTime(t);
 
-  time_t epoch = System.getDateTime();
+  struct timeval now;
+  gettimeofday(&now, NULL);
   printf(
-    "* Now: %u-%u-%u %s %02u:%02u:%02u (%lu seconds since 1970-01-01)\n",
+    "Now: %u-%u-%u %s %02u:%02u:%02u (%ld.%06ld)\n",
     t.tm_year + 1900,
     t.tm_mon + 1,
     t.tm_mday,
@@ -46,7 +47,8 @@ static void printTask(void *args) {
     t.tm_hour,
     t.tm_min,
     t.tm_sec,
-    epoch
+    now.tv_sec,
+    now.tv_usec
   );
   //![How to use getDateTime]
   printf("* Supply voltage: %ld mV\n", System.getSupplyVoltage());
