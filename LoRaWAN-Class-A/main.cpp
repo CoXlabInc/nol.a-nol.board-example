@@ -463,10 +463,14 @@ static void eventLoRaWANLinkChecked(
   uint8_t demodMargin,
   uint8_t numGateways
 ) {
-  printf(
-    "* LoRaWAN LinkChecked. Demodulation margin: %u dB, # of gateways: %u\n",
-    demodMargin, numGateways
-  );
+  if (numGateways > 0) {
+    printf(
+      "* LoRaWAN link checked. Demodulation margin: %u dB, # of gateways: %u\n",
+      demodMargin, numGateways
+    );
+  } else {
+    printf("* LoRaWAN link check failed.\n");
+  }
 }
 //! [How to use onLinkChecked callback]
 
