@@ -628,10 +628,11 @@ void setup() {
   LoRaWAN.onReceive(eventLoRaWANReceive);
   //! [How to set onReceive callback]
 
+#if (OVER_THE_AIR_ACTIVATION == 1)
   //! [How to set onJoin callback]
   LoRaWAN.onJoin(eventLoRaWANJoin);
   //! [How to set onJoin callback]
-
+#endif
   //! [How to set onJoinRequested callback]
   LoRaWAN.onJoinRequested(eventLoRaWANJoinRequested);
   //! [How to set onJoinRequested callback]
