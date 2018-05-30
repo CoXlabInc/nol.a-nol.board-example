@@ -4,7 +4,7 @@
 #include <UDP.hpp>
 
 #define LORAWAN_SKT 0
-#define OVER_THE_AIR_ACTIVATION 0
+#define OVER_THE_AIR_ACTIVATION 1
 
 #if (LORAWAN_SKT == 1)
 #include "LoRaMacKR920SKT.hpp"
@@ -43,9 +43,8 @@ static void taskPeriodicSend(void *) {
   char message[10];
 
   printf("Let's send an UDP datagram to ");
-  // server.printTo(Serial);
-  printf("\n");
-  Serial.flush();
+  server.printTo(Serial);
+  printf(".\n");
 
   uint16_t len = sprintf(message, "Hi %u\n", txCnt++);
   error_t err = Udp.sendto(&ipv6LoRaWAN, NULL, 40000, &server, 40000, message, len);
@@ -73,7 +72,7 @@ static void eventLoRaWANJoin(
     /* RealAppKey Joining */
     if (joined) {
       Serial.println("* RealAppKey joining done!");
-      postTask(taskPeriodicSend, NULL);
+      timerSend.startPeriodic(10000);
     } else {
       Serial.println("* RealAppKey joining failed. Retry to join.");
       LoRaWAN.beginJoining(NULL, NULL, NULL);
@@ -106,7 +105,7 @@ static void eventLoRaWANJoin(
 
   if (joined) {
     Serial.println("* Joining done!");
-    postTask(taskPeriodicSend, NULL);
+    timerSend.startPeriodic(10000);
   } else {
     Serial.println("* Joining failed. Retry to join.");
     lw.beginJoining(devEui, appEui, appKey);
@@ -357,7 +356,6 @@ static void taskBeginJoin(void *) {
 static void taskBeginJoin(void *) {
   Serial.stopListening();
   Serial.println("* Let's start join!");
-  LoRaWAN.setCurrentDatarateIndex(1); //SF8
   LoRaWAN.beginJoining(devEui, appEui, appKey);
 }
 #endif
@@ -447,7 +445,7 @@ void setup() {
   LoRaWAN.setABP(NwkSKey, AppSKey, DevAddr);
   LoRaWAN.setNetworkJoined(true);
 
-  postTask(taskPeriodicSend, NULL);
+  timerSend.startPeriodic(10000);
 #else
   Serial.printf(
     "* DevEUI: %02X-%02X-%02X-%02X-%02X-%02X-%02X-%02X\n",
