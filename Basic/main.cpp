@@ -39,7 +39,7 @@ static void printTask(void *args) {
   struct timeval now;
   gettimeofday(&now, NULL);
   printf(
-    "Now: %u-%u-%u %s %02u:%02u:%02u (%ld.%06ld)\n",
+    "Now: %u-%u-%u %s %02u:%02u:%02u (%lu.%06lu)\n",
     t.tm_year + 1900,
     t.tm_mon + 1,
     t.tm_mday,
