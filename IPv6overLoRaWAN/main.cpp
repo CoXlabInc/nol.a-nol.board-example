@@ -32,7 +32,7 @@ static uint32_t DevAddr = 0x06e632e8;
 #endif //OVER_THE_AIR_ACTIVATION
 
 IPv6 ipv6;
-IPv6LoRaWAN ipv6LoRaWAN(LoRaWAN);
+IPv6LoRaWAN ipv6LoRaWAN(LoRaWAN, 222);
 uint16_t txCnt = 0;
 
 static void taskPeriodicSend(void *) {
@@ -46,7 +46,7 @@ static void taskPeriodicSend(void *) {
   server.printTo(Serial);
   printf(".\n");
 
-  uint16_t len = sprintf(message, "Hi %u\n", txCnt++);
+  uint16_t len = sprintf(message, "Hi %u", txCnt++);
   error_t err = Udp.sendto(&ipv6LoRaWAN, NULL, 40000, &server, 40000, message, len);
   printf("err:%d\n", err);
 }
