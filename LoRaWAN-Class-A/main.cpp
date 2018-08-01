@@ -9,6 +9,7 @@ LoRaMacKR920SKT LoRaWAN = LoRaMacKR920SKT(SX1276, 12);
 LoRaMacKR920 LoRaWAN = LoRaMacKR920(SX1276, 12);
 #endif
 
+#define INTERVAL_SEND 2000
 Timer timerSend;
 
 #define OVER_THE_AIR_ACTIVATION 1
@@ -40,26 +41,27 @@ static void taskPeriodicSend(void *) {
   f->len = sprintf((char *) f->buf, "\"Now\":%lu", System.getDateTime());
 
   /* Uncomment below lines to specify parameters manually. */
+  // LoRaWAN.useADR = false;
   // f->freq = 922500000;
   // f->modulation = Radio::MOD_LORA;
   // f->meta.LoRa.bw = Radio::BW_125kHz;
   // f->meta.LoRa.sf = Radio::SF7;
-  // f->power = 10;
+  // f->power = 1; /* Index 1 => MaxEIRP - 2 dBm */
   // f->numTrials = 1;
 
   error_t err = LoRaWAN.send(f);
   printf("* Sending periodic report (%s (%u byte)): %d\n", f->buf, f->len, err);
   if (err != ERROR_SUCCESS) {
     delete f;
-    timerSend.startOneShot(1000);
+    timerSend.startOneShot(INTERVAL_SEND);
     return;
   }
 
   err = LoRaWAN.requestLinkCheck();
   printf("* Request LinkCheck: %d\n", err);
 
-  // err = LoRaWAN.requestDeviceTime();
-  // printf("* Request DeviceTime: %d\n", err);
+  err = LoRaWAN.requestDeviceTime();
+  printf("* Request DeviceTime: %d\n", err);
 }
 //! [How to send]
 
@@ -183,7 +185,7 @@ static void eventLoRaWANSendDone(LoRaMac &lw, LoRaMacFrame *frame) {
   }
   delete frame;
 
-  timerSend.startOneShot(1000);
+  timerSend.startOneShot(INTERVAL_SEND);
 }
 //! [How to use onSendDone callback]
 
@@ -216,36 +218,35 @@ static void eventLoRaWANReceive(LoRaMac &lw, const LoRaMacFrame *frame) {
     Serial.printf(", Unkndown modulation");
   }
   if (frame->type == LoRaMacFrame::UNCONFIRMED) {
-    Serial.printf(", Type:UNCONFIRMED");
+    Serial.printf(", Type:UNCONFIRMED,");
   } else if (frame->type == LoRaMacFrame::CONFIRMED) {
-    Serial.printf(", Type:CONFIRMED");
+    Serial.printf(", Type:CONFIRMED,");
+  } else if (frame->type == LoRaMacFrame::MULTICAST) {
+    Serial.printf(", Type:MULTICAST,");
+  } else if (frame->type == LoRaMacFrame::PROPRIETARY) {
+    Serial.printf(", Type:PROPRIETARY,");
+  } else {
+    Serial.printf(", unknown type,");
+  }
 
-    if (LoRaWAN.getNumPendingSendFrames() == 0) {
-      // If there is no pending send frames, send an empty frame to ack.
-      LoRaMacFrame *ackFrame = new LoRaMacFrame(0);
-      if (ackFrame) {
-        error_t err = LoRaWAN.send(ackFrame);
-        if (err != ERROR_SUCCESS) {
-          delete ackFrame;
-        }
+  for (uint8_t i = 0; i < frame->len; i++) {
+    Serial.printf(" %02X", frame->buf[i]);
+  }
+  Serial.printf(" (%u byte)\n", frame->len);
+
+  if (
+    (frame->type == LoRaMacFrame::CONFIRMED || lw.framePending) &&
+    lw.getNumPendingSendFrames() == 0
+  ) {
+    // If there is no pending send frames, send an empty frame to ack or pull more frames.
+    LoRaMacFrame *emptyFrame = new LoRaMacFrame(0);
+    if (emptyFrame) {
+      error_t err = LoRaWAN.send(emptyFrame);
+      if (err != ERROR_SUCCESS) {
+        delete emptyFrame;
       }
     }
-
-  } else if (frame->type == LoRaMacFrame::MULTICAST) {
-    Serial.printf(", Type:MULTICAST");
-  } else if (frame->type == LoRaMacFrame::PROPRIETARY) {
-    Serial.printf(", Type:PROPRIETARY");
-  } else {
-    Serial.printf(", unknown type");
   }
-
-  if (frame->len > 0) {
-    Serial.println(", ");
-    for (uint8_t i = 0; i < frame->len; i++) {
-      Serial.printf(" %02X", frame->buf[i]);
-    }
-  }
-  Serial.println();
 }
 //! [How to use onReceive callback]
 
@@ -670,6 +671,7 @@ void setup() {
   printf("ABP!\n");
   LoRaWAN.setABP(NwkSKey, AppSKey, DevAddr);
   LoRaWAN.setNetworkJoined(true);
+  LoRaWAN.setCurrentDatarateIndex(5);
 
   postTask(taskPeriodicSend, NULL);
 #else
