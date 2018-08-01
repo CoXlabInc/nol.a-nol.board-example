@@ -12,7 +12,7 @@ Radio::LoRaBW_t bw = Radio::BW_125kHz;
 int8_t txPower = 14;
 bool iq = true;
 uint8_t syncword = 0x12;
-uint32_t freq = 921900000;
+uint32_t freq = 917100000;
 bool packetMode = true;
 
 static void eventOnTxDone(void *ctx, bool success) {
@@ -28,9 +28,13 @@ static void sendTask(void *args) {
     return;
   }
 
-  frame = new RadioPacket(125);
-  if (!frame) {
+  frame = new RadioPacket(100);
+  if (!frame || !frame->buf) {
     printf("Not enough memory\n");
+    if (frame) {
+      delete frame;
+      frame = NULL;
+    }
     return;
   }
 
@@ -39,11 +43,11 @@ static void sendTask(void *args) {
 
   frame->buf[0] = (sent >> 8);
   frame->buf[1] = (sent & 0xff);
+  printf("[%lu us] %lu Tx started... (%u byte)\n", micros(), sent, frame->len);
 
   SX1276.wakeup();
   SX1276.transmit(frame);
 
-  printf("[%lu us] %lu Tx started...\n", micros(), sent);
   sent++;
 }
 

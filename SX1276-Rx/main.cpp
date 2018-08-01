@@ -32,7 +32,7 @@ static void printRxDone(void *args) {
 }
 
 static void eventOnRxDone(void *ctx) {
-  RadioPacket *rxFrame = new RadioPacket(125);
+  RadioPacket *rxFrame = new RadioPacket(255);
 
   if (!rxFrame) {
     printf("Out of memory to read frame\n");
