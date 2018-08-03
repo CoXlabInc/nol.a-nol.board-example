@@ -1,6 +1,10 @@
 #include <cox.h>
 
 #define LORAWAN_SKT 0
+#define INTERVAL_SEND 20000
+#define OVER_THE_AIR_ACTIVATION 1
+#define INIT_CLASS_C 0
+
 #if (LORAWAN_SKT == 1)
 #include "LoRaMacKR920SKT.hpp"
 LoRaMacKR920SKT LoRaWAN = LoRaMacKR920SKT(SX1276, 12);
@@ -9,10 +13,7 @@ LoRaMacKR920SKT LoRaWAN = LoRaMacKR920SKT(SX1276, 12);
 LoRaMacKR920 LoRaWAN = LoRaMacKR920(SX1276, 12);
 #endif
 
-#define INTERVAL_SEND 2000
 Timer timerSend;
-
-#define OVER_THE_AIR_ACTIVATION 1
 
 #if (OVER_THE_AIR_ACTIVATION == 1)
 static uint8_t devEui[8];
@@ -122,6 +123,10 @@ static void eventLoRaWANJoin(
 
   if (joined) {
     Serial.println("* Joining done!");
+
+#if (INIT_CLASS_C == 1)
+    lw.setDeviceClass(LoRaMac::CLASS_C);
+#endif
     postTask(taskPeriodicSend, NULL);
   } else {
     Serial.println("* Joining failed. Retry to join.");
@@ -502,39 +507,41 @@ static void eventLoRaWANDeviceTimeAnswered(
 }
 //! [How to use onDeviceTimeAnswered callback]
 
+//! [How to use onDeviceModeConfigured callback]
+static void eventLoRaWANDeviceModeConfigured(LoRaMac &lw, bool success, LoRaMac::DeviceClass_t newClass) {
+  if (success) {
+    printf("* LoRaWAN DeviceMode configured to ");
+    if (newClass == LoRaMac::CLASS_A) {
+      printf("A");
+    } else if (newClass == LoRaMac::CLASS_C) {
+      printf("C");
+    } else {
+      printf("unknown");
+    }
+    printf(" by the network.\n");
+  } else {
+    printf("* LoRaWAN network server is not responsing DeviceModeConf.\n");
+  }
+}
+//! [How to use onDeviceModeConfigured callback]
+
+static void eventLoRaWANDeviceModeIndSent(LoRaMac &lw, LoRaMac::DeviceClass_t newClass) {
+  printf("* LoRaWAN DeviceModeInd sent. [0x%02X]\n", (uint8_t) newClass);
+}
+
 static void eventButtonPressed() {
   printf("* Button pressed:\n");
 
-  LoRaMacFrame *f = new LoRaMacFrame(20);
-  if (f == NULL) {
-    printf("- Not enough memory\n");
-    return;
-  }
-
+  error_t err;
   if (LoRaWAN.getDeviceClass() == LoRaMac::CLASS_A) {
-    printf("- Change class A to C\n");
-    f->len = sprintf((char *) f->buf, "\"class\":\"C\"");
+    printf("- Change class A to C:");
+    err = LoRaWAN.setDeviceClass(LoRaMac::CLASS_C, true, eventLoRaWANDeviceModeIndSent);
   } else {
-    printf("- Change class C to A\n");
-    f->len = sprintf((char *) f->buf, "\"class\":\"A\"");
+    printf("- Change class C to A:");
+    err = LoRaWAN.setDeviceClass(LoRaMac::CLASS_A, true, eventLoRaWANDeviceModeIndSent);
   }
 
-  f->port = 223;
-  f->type = LoRaMacFrame::CONFIRMED;
-  error_t err = LoRaWAN.send(f);
-  printf(
-    "* Sending class configuration message (%s (%u byte)): %d\n",
-    f->buf, f->len, err
-  );
-  if (err == ERROR_SUCCESS) {
-    if (LoRaWAN.getDeviceClass() == LoRaMac::CLASS_A) {
-      LoRaWAN.setDeviceClass(LoRaMac::CLASS_C);
-    } else {
-      LoRaWAN.setDeviceClass(LoRaMac::CLASS_A);
-    }
-  } else {
-    delete f;
-  }
+  printf("%d\n", err);
 }
 
 #if (OVER_THE_AIR_ACTIVATION == 1)
@@ -649,6 +656,8 @@ void setup() {
   //! [How to set onDeviceTimeAnswered callback]
   LoRaWAN.onDeviceTimeAnswered(eventLoRaWANDeviceTimeAnswered, &System);
   //! [How to set onDeviceTimeAnswered callback]
+
+  LoRaWAN.onDeviceModeConfigured(eventLoRaWANDeviceModeConfigured);
 
   LoRaWAN.onLinkADRReqReceived(eventLoRaWANLinkADRReqReceived);
   LoRaWAN.onLinkADRAnsSent(eventLoRaWANLinkADRAnsSent);
