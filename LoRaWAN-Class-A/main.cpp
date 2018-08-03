@@ -140,7 +140,7 @@ static void eventLoRaWANJoin(
 //! [How to use onSendDone callback]
 static void eventLoRaWANSendDone(LoRaMac &lw, LoRaMacFrame *frame) {
   Serial.printf(
-    "* Send done(%d): destined for port:%u, fCnt:0x%08lX, Freq:%lu Hz, "
+    "* Send done(%d): destined for port:%u, fCnt:0x%lX, Freq:%lu Hz, "
     "Power:%d dBm, # of Tx:%u, ",
     frame->result,
     frame->port,
@@ -178,7 +178,7 @@ static void eventLoRaWANSendDone(LoRaMac &lw, LoRaMacFrame *frame) {
   }
   Serial.printf(" frame\n");
 
-  for (uint8_t t = 0; t < 8; t++) {
+  for (uint8_t t = 0; t < frame->numTrials; t++) {
     const char *strTxResult[] = {
       "not started",
       "success",
@@ -207,7 +207,7 @@ static void eventLoRaWANReceive(LoRaMac &lw, const LoRaMacFrame *frame) {
     Serial.print(" (duplicate)");
   }
   fCntDownPrev = frame->fCnt;
-  Serial.printf(", Freq:%lu Hz, RSSI: %d dB", frame->freq, frame->power);
+  Serial.printf(", Freq:%lu Hz, RSSI:%d dB", frame->freq, frame->power);
 
   if (frame->modulation == Radio::MOD_LORA) {
     const char *strBW[] = {
@@ -282,38 +282,37 @@ static void eventLoRaWANLinkADRReqReceived(LoRaMac &l, const uint8_t *payload) {
 //! [eventLoRaWANLinkADRAnsSent]
 static void printChannelInformation(LoRaMac &lw) {
   //! [getChannel]
+  printf("* Frequency List\n");
   for (uint8_t i = 0; i < lw.MaxNumChannels; i++) {
     const LoRaMac::ChannelParams_t *p = lw.getChannel(i);
     if (p) {
-      printf(" - [%u] Frequency:%lu Hz\n", i, p->Frequency);
-    } else {
-      printf(" - [%u] disabled\n", i);
+      printf(" - [%u] %lu Hz\n", i, p->Frequency);
     }
   }
   //! [getChannel]
 
   //! [getDatarate]
   const LoRaMac::DatarateParams_t *dr = lw.getDatarate(lw.getCurrentDatarateIndex());
-  printf(" - Default DR%u:", lw.getCurrentDatarateIndex());
+  printf("* Default DR: %u", lw.getCurrentDatarateIndex());
   if (dr->mod == Radio::MOD_LORA) {
     const char *strBW[] = {
       "Unknown", "125kHz", "250kHz", "500kHz", "Unexpected value"
     };
     printf(
-      "LoRa(SF%u BW:%s)\n",
+      "(LoRa SF%u BW:%s)\n",
       dr->param.LoRa.sf,
       strBW[min(dr->param.LoRa.bw, 4)]
     );
   } else if (dr->mod == Radio::MOD_FSK) {
-    printf("FSK\n");
+    printf("(FSK)\n");
   } else {
-    printf("Unknown modulation\n");
+    printf("(Unknown modulation)\n");
   }
   //! [getDatarate]
 
   //! [getTxPower]
   int8_t power = lw.getTxPower(lw.getCurrentTxPowerIndex());
-  printf(" - Default Tx: ");
+  printf("* Default Tx: ");
   if (power == -127) {
     printf("unexpected value\n");
   } else {
@@ -428,12 +427,11 @@ static void eventLoRaWANNewChannelAnsSent(LoRaMac &lw, uint8_t status) {
     (bitRead(status, 0) == 1) ? "OK" : "NOT OK"
   );
 
+  printf("* Frequency List\n");
   for (uint8_t i = 0; i < lw.MaxNumChannels; i++) {
     const LoRaMac::ChannelParams_t *p = lw.getChannel(i);
     if (p) {
-      printf(" - [%u] Frequency:%lu Hz\n", i, p->Frequency);
-    } else {
-      printf(" - [%u] disabled\n", i);
+      printf(" - [%u] %lu Hz\n", i, p->Frequency);
     }
   }
 }
