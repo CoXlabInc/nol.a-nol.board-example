@@ -41,13 +41,17 @@ static void taskPeriodicSend(void *) {
   f->type = LoRaMacFrame::CONFIRMED;
   f->len = sprintf((char *) f->buf, "\"Now\":%lu", System.getDateTime());
 
+  /* Uncomment below line to specify frequency. */
+  // f->freq = 922500000;
+
   /* Uncomment below lines to specify parameters manually. */
   // LoRaWAN.useADR = false;
-  // f->freq = 922500000;
   // f->modulation = Radio::MOD_LORA;
   // f->meta.LoRa.bw = Radio::BW_125kHz;
   // f->meta.LoRa.sf = Radio::SF7;
   // f->power = 1; /* Index 1 => MaxEIRP - 2 dBm */
+
+  /* Uncomment below line to specify number of trials. */
   // f->numTrials = 1;
 
   error_t err = LoRaWAN.send(f);
