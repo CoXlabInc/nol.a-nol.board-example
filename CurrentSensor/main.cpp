@@ -1,8 +1,8 @@
 #include <cox.h>
-#include "FS9L6.hpp"
+#include "CurrentSensor.hpp"
 
 Timer timerHello;
-FS9L6 seq;
+CurrentSensor seq(2.5,4095,330,600);
 
 #define LORAWAN_SKT 0
 #define INTERVAL_SEND 10000
@@ -41,15 +41,18 @@ static void taskPeriodicSend(void *) {
     return;
   }
 
-  seq.Maintain(); // Measure and Caculate AC
-
+  seq.Sense(); // Measure and Caculate AC
+  int VpDataH = seq.voltageRMS;
+  int VpDataL = seq.voltageRMS * 1000;
+  int CurrentDataH = seq.Current;
+  int CurrentDataL = seq.Current * 1000;
   f->port = 1;
   f->type = LoRaMacFrame::CONFIRMED;
   f->len = sprintf((char *) f->buf, "\"Vrms\":%d.%03d,\"Current\":%d.%03d"
-                                    , seq.VpDataH
-                                    , seq.VpDataL
-                                    , seq.CurrentDataH
-                                    , seq.CurrentDataL);
+                                    , VpDataH
+                                    , VpDataL
+                                    , CurrentDataH
+                                    , CurrentDataL);
 
   /* Uncomment below line to specify frequency. */
   // f->freq = 922500000;
