@@ -3,7 +3,7 @@
 
 Timer timerHello;
 AcCurrentSensor seq(14, 2.5, 4095.0, 330, 600);
-//AcCurrentSensor name(PinNumInput, ADC_AmaxInput, ADC_DmaxInput, ResistorInput, TransformerWindingInput);
+//AcCurrentSensor name(DigitalPinNumInput, ADC_AmaxInput, ADC_DmaxInput, ResistorInput, TransformerWindingInput);
 
 
 #define LORAWAN_SKT 0
