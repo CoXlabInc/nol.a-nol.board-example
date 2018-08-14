@@ -1,8 +1,8 @@
 #include <cox.h>
-#include "CurrentSensor.hpp"
+#include "AcCurrentSensor.hpp"
 
 Timer timerHello;
-CurrentSensor seq(2.5,4095.0,330,600);
+AcCurrentSensor seq(2.5,4095.0,330,600);
 
 #define LORAWAN_SKT 0
 #define INTERVAL_SEND 10000
