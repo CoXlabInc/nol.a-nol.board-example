@@ -2,7 +2,9 @@
 #include "AcCurrentSensor.hpp"
 
 Timer timerHello;
-AcCurrentSensor seq(2.5,4095.0,330,600);
+AcCurrentSensor seq(14, 2.5, 4095.0, 330, 600);
+//AcCurrentSensor name(PinNumInput, ADC_AmaxInput, ADC_DmaxInput, ResistorInput, TransformerWindingInput);
+
 
 #define LORAWAN_SKT 0
 #define INTERVAL_SEND 10000
