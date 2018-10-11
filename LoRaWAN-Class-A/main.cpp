@@ -7,10 +7,10 @@
 
 #if (LORAWAN_SKT == 1)
 #include "LoRaMacKR920SKT.hpp"
-LoRaMacKR920SKT LoRaWAN = LoRaMacKR920SKT(SX1276, 12);
+LoRaMacKR920SKT LoRaWAN = LoRaMacKR920SKT(SX1276, 10);
 #else
 #include "LoRaMacKR920.hpp"
-LoRaMacKR920 LoRaWAN = LoRaMacKR920(SX1276, 12);
+LoRaMacKR920 LoRaWAN = LoRaMacKR920(SX1276, 10);
 #endif
 
 Timer timerSend;
@@ -570,7 +570,7 @@ static void taskBeginJoin(void *) {
 static void taskBeginJoin(void *) {
   Serial.stopListening();
   Serial.println("* Let's start join!");
-  LoRaWAN.setCurrentDatarateIndex(1); //SF8
+  // LoRaWAN.setCurrentDatarateIndex(1); //SF8
   LoRaWAN.beginJoining(devEui, appEui, appKey);
 }
 #endif
