@@ -1,17 +1,11 @@
 #include <cox.h>
 
-#define LORAWAN_SKT 0
 #define INTERVAL_SEND 20000
 #define OVER_THE_AIR_ACTIVATION 1
 #define INIT_CLASS_C 0
 
-#if (LORAWAN_SKT == 1)
-#include "LoRaMacKR920SKT.hpp"
-LoRaMacKR920SKT LoRaWAN = LoRaMacKR920SKT(SX1276, 10);
-#else
 #include "LoRaMacKR920.hpp"
 LoRaMacKR920 LoRaWAN = LoRaMacKR920(SX1276, 10);
-#endif
 
 Timer timerSend;
 
@@ -71,45 +65,6 @@ static void taskPeriodicSend(void *) {
 //! [How to send]
 
 #if (OVER_THE_AIR_ACTIVATION == 1)
-
-#if (LORAWAN_SKT == 1)
-//! [How to use onJoin callback for SKT]
-static void eventLoRaWANJoin(
-  LoRaMac &,
-  bool joined,
-  const uint8_t *joinedDevEui,
-  const uint8_t *joinedAppEui,
-  const uint8_t *joinedAppKey,
-  const uint8_t *joinedNwkSKey,
-  const uint8_t *joinedAppSKey,
-  uint32_t joinedDevAddr,
-  const RadioPacket &,
-  uint32_t airTime
-) {
-  Serial.printf("* Tx time of JoinRequest: %lu usec.\n", airTime);
-
-  if (joinedNwkSKey && joinedAppSKey) {
-    /* RealAppKey Joining */
-    if (joined) {
-      Serial.println("* RealAppKey joining done!");
-      postTask(taskPeriodicSend, NULL);
-    } else {
-      Serial.println("* RealAppKey joining failed. Retry to join.");
-      LoRaWAN.beginJoining(NULL, NULL, NULL);
-    }
-  } else {
-    /* PseudoAppKey Joining */
-    if (joined) {
-      Serial.println("* PseudoAppKey joining done! Let's do RealAppKey joining!");
-      LoRaWAN.beginJoining(NULL, NULL, NULL);
-    } else {
-      Serial.println("* PseudoAppKey joining failed. Retry to join.");
-      LoRaWAN.beginJoining(devEui, appEui, appKey);
-    }
-  }
-}
-//! [How to use onJoin callback for SKT]
-#else
 //! [How to use onJoin callback]
 static void eventLoRaWANJoin(
   LoRaMac &lw,
@@ -138,7 +93,6 @@ static void eventLoRaWANJoin(
   }
 }
 //! [How to use onJoin callback]
-#endif //LORAWAN_SKT
 #endif //OVER_THE_AIR_ACTIVATION
 
 //! [How to use onSendDone callback]
@@ -548,32 +502,12 @@ static void eventButtonPressed() {
 
 #if (OVER_THE_AIR_ACTIVATION == 1)
 
-#if (LORAWAN_SKT == 1)
-static void taskBeginJoin(void *) {
-  Serial.stopListening();
-
-#if 0
-  Serial.println("* Let's start PseudoAppKey join!");
-  //! [SKT PseudoAppKey joining]
-  LoRaWAN.setNetworkJoined(false);
-  LoRaWAN.beginJoining(devEui, appEui, appKey);
-  //! [SKT PseudoAppKey joining]
-#else
-  Serial.println("* Let's start RealAppKey join!");
-  //! [SKT RealAppKey joining]
-  LoRaWAN.setNetworkJoined(true);
-  LoRaWAN.beginJoining(devEui, appEui, appKey);
-  //! [SKT RealAppKey joining]
-#endif
-}
-#else
 static void taskBeginJoin(void *) {
   Serial.stopListening();
   Serial.println("* Let's start join!");
   // LoRaWAN.setCurrentDatarateIndex(1); //SF8
   LoRaWAN.beginJoining(devEui, appEui, appKey);
 }
-#endif
 
 static void eventAppKeyInput(SerialPort &) {
   uint8_t numOctets = strlen(keyBuf);

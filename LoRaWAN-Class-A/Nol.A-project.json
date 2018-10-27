@@ -1,3 +1,4 @@
 {
- "board": "nol.board"
+ "board": "nol.board",
+ "options": "NOLA_DEBUG_LORAWAN=1"
 }
