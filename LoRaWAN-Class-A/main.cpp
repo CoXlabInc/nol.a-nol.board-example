@@ -5,7 +5,7 @@
 #define INIT_CLASS_C 0
 
 #include "LoRaMacKR920.hpp"
-LoRaMacKR920 LoRaWAN = LoRaMacKR920(SX1276, 10);
+LoRaMacKR920 LoRaWAN(SX1276, 10);
 
 Timer timerSend;
 
