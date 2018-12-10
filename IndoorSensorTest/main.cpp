@@ -11,11 +11,10 @@ RHT03 rht;
 #include "LoRaMacKR920.hpp"
 LoRaMacKR920 LoRaWAN = LoRaMacKR920(SX1276, 10);
 
-Timer measurement;
 Timer timerSend;
 
-int32_t latestPM2_5=0;
-int32_t latestPM10_0=0;
+int32_t latestPM2_5 = -1;
+int32_t latestPM10_0 = -1;
 
 int CO2;
 int TVOC;
@@ -50,59 +49,61 @@ static void eventSensorMeasuredDone(
 ) {
   latestPM2_5 = pm2_5_Atmosphere;
   latestPM10_0 = pm10_0_Atmosphere;
+
+  printf("PM1.0:%ld, PM2.5:%ld, PM10:%ld\n", pm1_0_Atmosphere, pm2_5_Atmosphere, pm10_0_Atmosphere);
 }
 
-//! [How to send]
 static void taskPeriodicSend(void *) {
+  digitalWrite(D5, HIGH);
+
   LoRaMacFrame *f = new LoRaMacFrame(242);
   if (!f) {
     printf("* Out of memory\n");
+    digitalWrite(D5, LOW);
     return;
   }
 
   f->port = 1;
   f->type = LoRaMacFrame::CONFIRMED;
-  f->len = sprintf(
-    (char *) f->buf,"\"Hum\":%u.%u,\"Tem\":%u.%u,\"PM2.5\":%lu,\"PM10.0\":%lu,\"CO2\":%d,\"VOC\":%d",
-    (uint16_t) latestHumidity,
-    (uint16_t) round(latestHumidity * 100) % 100,
-    (uint16_t) latestTempC,
-    (uint16_t) round(latestTempC * 100) % 100,
-    latestPM2_5 ,
-    latestPM10_0,
-    CO2,
-    TVOC
+
+  uint8_t i = 0;
+
+  int updateRet = rht.update();
+  if (updateRet == 1){
+    float h = rht.humidity();
+    float t = rht.tempC();
+    i += sprintf(
+      (char *)(f->buf + i), "\"Hum\":%u.%02u,\"Temp\":%u.%02u,",
+      (uint16_t) h, ((uint16_t) round(h * 100)) % 100,
+      (uint16_t) t, ((uint16_t) round(t * 100)) % 100
+    );
+  } else {
+    printf("* Read RHT error:%d\n", updateRet);
+  }
+
+  mysensor.readAlgorithmResults();
+  i += sprintf(
+    (char *) (f->buf + i), "\"CO2e\":%u,\"TVOC\":%u",
+    mysensor.getCO2e(), mysensor.getTVOC()
   );
 
+  if (latestPM2_5 >= 0) {
+    i += sprintf((char *) (f->buf + i), ",\"PM2.5\":%ld", latestPM2_5);
+  }
+
+  if (latestPM10_0 >= 0) {
+    i += sprintf((char *) (f->buf + i), ",\"PM10\":%ld", latestPM10_0);
+  }
+
+  f->len = i;
   error_t err = LoRaWAN.send(f);
   printf("* Sending periodic report (%s (%u byte)): %d\n", f->buf, f->len, err);
   if (err != ERROR_SUCCESS) {
     delete f;
     timerSend.startOneShot(10000);
+    digitalWrite(D5, LOW);
   }
-
-  err = LoRaWAN.requestLinkCheck();
-  printf("* Request LinkCheck: %d\n", err);
-
-  // err = LoRaWAN.requestDeviceTime();
-  // printf("* Request DeviceTime: %d\n", err);
 }
-
-static void readSensor(void*){
-  digitalWrite(D4,HIGH);
-  int updateRet = rht.update();
-  if (updateRet == 1){
-    latestHumidity = rht.humidity();
-    latestTempC = rht.tempC();
-    latestTempF = rht.tempF();
-  }
-  mysensor.readAlgorithmResults();
-  CO2=mysensor.getCO2e();
-  TVOC=mysensor.getTVOC();
-  pms3003.onReadDone(eventSensorMeasuredDone);
-  digitalWrite(D4,LOW);
-}
-//! [How to send]
 
 #if (OVER_THE_AIR_ACTIVATION == 1)
 static void eventLoRaWANJoin(
@@ -127,8 +128,9 @@ static void eventLoRaWANJoin(
 }
 #endif //OVER_THE_AIR_ACTIVATION
 
-//! [How to use onSendDone callback]
 static void eventLoRaWANSendDone(LoRaMac &lw, LoRaMacFrame *frame) {
+  digitalWrite(D5, LOW);
+
   Serial.printf(
     "* Send done(%d): destined for port:%u, fCnt:0x%08lX, Freq:%lu Hz, "
     "Power:%d dBm, # of Tx:%u, ",
@@ -182,9 +184,7 @@ static void eventLoRaWANSendDone(LoRaMac &lw, LoRaMacFrame *frame) {
 
   timerSend.startOneShot(60000);
 }
-//! [How to use onSendDone callback]
 
-//! [How to use onReceive callback]
 static void eventLoRaWANReceive(LoRaMac &lw, const LoRaMacFrame *frame) {
   static uint32_t fCntDownPrev = 0;
 
@@ -247,286 +247,6 @@ static void eventLoRaWANReceive(LoRaMac &lw, const LoRaMacFrame *frame) {
   }
   Serial.println();
 }
-//! [How to use onReceive callback]
-
-//! [How to use onJoinRequested callback]
-static void eventLoRaWANJoinRequested(
-  LoRaMac &, uint32_t frequencyHz, const LoRaMac::DatarateParams_t &dr
-) {
-  printf("* JoinRequested(Frequency: %lu Hz, Modulation: ", frequencyHz);
-  if (dr.mod == Radio::MOD_FSK) {
-    printf("FSK\n");
-  } else if (dr.mod == Radio::MOD_LORA) {
-    const char *strLoRaBW[] = { "UNKNOWN", "125kHz", "250kHz", "500kHz" };
-    printf("LoRa, SF:%u, BW:%s)\n", dr.param.LoRa.sf, strLoRaBW[dr.param.LoRa.bw]);
-  }
-}
-//! [How to use onJoinRequested callback]
-
-//! [eventLoRaWANLinkADRReqReceived]
-static void eventLoRaWANLinkADRReqReceived(LoRaMac &l, const uint8_t *payload) {
-  printf("* LoRaWAN LinkADRReq received: [");
-  for (uint8_t i = 0; i < 4; i++) {
-    printf(" %02X", payload[i]);
-  }
-  printf(" ]\n");
-}
-//! [eventLoRaWANLinkADRReqReceived]
-
-//! [eventLoRaWANLinkADRAnsSent]
-static void printChannelInformation(LoRaMac &lw) {
-  //! [getChannel]
-  for (uint8_t i = 0; i < lw.MaxNumChannels; i++) {
-    const LoRaMac::ChannelParams_t *p = lw.getChannel(i);
-    if (p) {
-      printf(" - [%u] Frequency:%lu Hz\n", i, p->Frequency);
-    } else {
-      printf(" - [%u] disabled\n", i);
-    }
-  }
-  //! [getChannel]
-
-  //! [getDatarate]
-  const LoRaMac::DatarateParams_t *dr = lw.getDatarate(lw.getCurrentDatarateIndex());
-  printf(" - Default DR%u:", lw.getCurrentDatarateIndex());
-  if (dr->mod == Radio::MOD_LORA) {
-    const char *strBW[] = {
-      "Unknown", "125kHz", "250kHz", "500kHz", "Unexpected value"
-    };
-    printf(
-      "LoRa(SF%u BW:%s)\n",
-      dr->param.LoRa.sf,
-      strBW[min(dr->param.LoRa.bw, 4)]
-    );
-  } else if (dr->mod == Radio::MOD_FSK) {
-    printf("FSK\n");
-  } else {
-    printf("Unknown modulation\n");
-  }
-  //! [getDatarate]
-
-  //! [getTxPower]
-  int8_t power = lw.getTxPower(lw.getCurrentTxPowerIndex());
-  printf(" - Default Tx: ");
-  if (power == -127) {
-    printf("unexpected value\n");
-  } else {
-    printf("%d dBm\n", power);
-  }
-  //! [getTxPower]
-
-  printf(
-    " - # of repetitions of unconfirmed uplink frames: %u\n",
-    lw.getNumRepetitions()
-  );
-}
-
-static void eventLoRaWANLinkADRAnsSent(LoRaMac &lw, uint8_t status) {
-  printf("* LoRaWAN LinkADRAns sent with status 0x%02X.\n", status);
-  printChannelInformation(lw);
-}
-//! [eventLoRaWANLinkADRAnsSent]
-
-//! [eventLoRaWANDutyCycleReqReceived]
-static void eventLoRaWANDutyCycleReqReceived(
-  LoRaMac &lw, const uint8_t *payload
-) {
-  printf("* LoRaWAN DutyCycleReq received: [");
-  for (uint8_t i = 0; i < 1; i++) {
-    printf(" %02X", payload[i]);
-  }
-  printf(" ]\n");
-}
-//! [eventLoRaWANDutyCycleReqReceived]
-
-//! [eventLoRaWANDutyCycleAnsSent]
-static void eventLoRaWANDutyCycleAnsSent(LoRaMac &lw) {
-  printf(
-    "* LoRaWAN DutyCycleAns sent. Current MaxDCycle is %u.\n",
-    lw.getMaxDutyCycle()
-  );
-}
-//! [eventLoRaWANDutyCycleAnsSent]
-
-//! [eventLoRaWANRxParamSetupReqReceived]
-static void eventLoRaWANRxParamSetupReqReceived(
-  LoRaMac &lw,
-  const uint8_t *payload
-) {
-  printf("* LoRaWAN RxParamSetupReq received: [");
-  for (uint8_t i = 0; i < 4; i++) {
-    printf(" %02X", payload[i]);
-  }
-  printf(" ]\n");
-}
-//! [eventLoRaWANRxParamSetupReqReceived]
-
-//! [eventLoRaWANRxParamSetupAnsSent]
-static void eventLoRaWANRxParamSetupAnsSent(LoRaMac &lw, uint8_t status) {
-  printf(
-    "* LoRaWAN RxParamSetupAns sent with status 0x%02X. "
-    "Current Rx1Offset is %u, and Rx2 channel is (DR%u, %lu Hz).\n",
-    status,
-    lw.getRx1DrOffset(),
-    lw.getRx2Datarate(),
-    lw.getRx2Frequency()
-  );
-}
-//! [eventLoRaWANRxParamSetupAnsSent]
-
-static void eventLoRaWANDevStatusReqReceived(LoRaMac &lw) {
-  printf("* LoRaWAN DevStatusReq received.\n");
-}
-
-//! [eventLoRaWANDevStatusAnsSent]
-static void eventLoRaWANDevStatusAnsSent(
-  LoRaMac &lw,
-  uint8_t bat,
-  uint8_t margin
-) {
-  printf("* LoRaWAN DevStatusAns sent. (");
-  if (bat == 0) {
-    printf("Powered by external power source. ");
-  } else if (bat == 255) {
-    printf("Battery level cannot be measured. ");
-  } else {
-    printf("Battery: %lu %%. ", map(bat, 1, 254, 0, 100));
-  }
-
-  if (bitRead(margin, 5) == 1) {
-    margin |= bit(7) | bit(6);
-  }
-
-  printf(" SNR: %d)\n", (int8_t) margin);
-}
-//! [eventLoRaWANDevStatusAnsSent]
-
-//! [eventLoRaWANNewChannelReqReceived]
-static void eventLoRaWANNewChannelReqReceived(
-  LoRaMac &lw, const uint8_t *payload
-) {
-  printf("* LoRaWAN NewChannelReq received [");
-  for (uint8_t i = 0; i < 5; i++) {
-    printf(" %02X", payload[i]);
-  }
-  printf(" ]\n");
-}
-//! [eventLoRaWANNewChannelReqReceived]
-
-//! [eventLoRaWANNewChannelAnsSent]
-static void eventLoRaWANNewChannelAnsSent(LoRaMac &lw, uint8_t status) {
-  printf(
-    "* LoRaWAN NewChannelAns sent with "
-    "(Datarate range %s and channel frequency %s).\n",
-    (bitRead(status, 1) == 1) ? "OK" : "NOT OK",
-    (bitRead(status, 0) == 1) ? "OK" : "NOT OK"
-  );
-
-  for (uint8_t i = 0; i < lw.MaxNumChannels; i++) {
-    const LoRaMac::ChannelParams_t *p = lw.getChannel(i);
-    if (p) {
-      printf(" - [%u] Frequency:%lu Hz\n", i, p->Frequency);
-    } else {
-      printf(" - [%u] disabled\n", i);
-    }
-  }
-}
-//! [eventLoRaWANNewChannelAnsSent]
-
-//! [eventLoRaWANRxTimingSetupReqReceived]
-static void eventLoRaWANRxTimingSetupReqReceived(
-  LoRaMac &lw,
-  const uint8_t *payload
-) {
-  printf("* LoRaWAN RxTimingSetupReq received:  [");
-  for (uint8_t i = 0; i < 1; i++) {
-    printf(" %02X", payload[i]);
-  }
-  printf(" ]\n");
-}
-//! [eventLoRaWANRxTimingSetupReqReceived]
-
-//! [eventLoRaWANRxTimingSetupAnsSent]
-static void eventLoRaWANRxTimingSetupAnsSent(LoRaMac &lw) {
-  printf(
-    "* LoRaWAN RxTimingSetupAns sent. "
-    "Current Rx1 delay is %u msec, and Rx2 delay is %u msec.\n",
-    lw.getRx1Delay(),
-    lw.getRx2Delay()
-  );
-}
-//! [eventLoRaWANRxTimingSetupAnsSent]
-
-//! [How to use onLinkChecked callback]
-static void eventLoRaWANLinkChecked(
-  LoRaMac &lw,
-  uint8_t demodMargin,
-  uint8_t numGateways
-) {
-  printf(
-    "* LoRaWAN LinkChecked. Demodulation margin: %u dB, # of gateways: %u\n",
-    demodMargin, numGateways
-  );
-}
-//! [How to use onLinkChecked callback]
-
-//! [How to use onDeviceTimeAnswered callback]
-static void eventLoRaWANDeviceTimeAnswered(
-  LoRaMac &lw,
-  bool success,
-  uint32_t tSeconds,
-  uint8_t tFracSeconds
-) {
-  struct tm tLocal, tUtc;
-  System.getDateTime(tLocal);
-  System.getUTC(tUtc);
-  printf(
-    "* LoRaWAN DeviceTime answered: (%lu + %u/256) GPS epoch.\n"
-    "- Adjusted local time: %u-%u-%u %02u:%02u:%02u\n"
-    "- Adjusted UTC time: %u-%u-%u %02u:%02u:%02u\n",
-    tSeconds, tFracSeconds,
-    tLocal.tm_year + 1900, tLocal.tm_mon + 1, tLocal.tm_mday,
-    tLocal.tm_hour, tLocal.tm_min, tLocal.tm_sec,
-    tUtc.tm_year + 1900, tUtc.tm_mon + 1, tUtc.tm_mday,
-    tUtc.tm_hour, tUtc.tm_min, tUtc.tm_sec
-  );
-}
-//! [How to use onDeviceTimeAnswered callback]
-
-static void eventButtonPressed() {
-  printf("* Button pressed:\n");
-
-  LoRaMacFrame *f = new LoRaMacFrame(20);
-  if (f == NULL) {
-    printf("- Not enough memory\n");
-    return;
-  }
-
-  if (LoRaWAN.getDeviceClass() == LoRaMac::CLASS_A) {
-    printf("- Change class A to C\n");
-    f->len = sprintf((char *) f->buf, "\"class\":\"C\"");
-  } else {
-    printf("- Change class C to A\n");
-    f->len = sprintf((char *) f->buf, "\"class\":\"A\"");
-  }
-
-  f->port = 223;
-  f->type = LoRaMacFrame::CONFIRMED;
-  error_t err = LoRaWAN.send(f);
-  printf(
-    "* Sending class configuration message (%s (%u byte)): %d\n",
-    f->buf, f->len, err
-  );
-  if (err == ERROR_SUCCESS) {
-    if (LoRaWAN.getDeviceClass() == LoRaMac::CLASS_A) {
-      LoRaWAN.setDeviceClass(LoRaMac::CLASS_C);
-    } else {
-      LoRaWAN.setDeviceClass(LoRaMac::CLASS_A);
-    }
-  } else {
-    delete f;
-  }
-}
 
 #if (OVER_THE_AIR_ACTIVATION == 1)
 static void taskBeginJoin(void *) {
@@ -585,14 +305,13 @@ void setup() {
   Serial.printf("\n*** [Nol.Board] LoRaWAN Class A&C Example ***\n");
 
   mysensor.begin();
-  rht.begin(D13);
+  pms3003.onReadDone(eventSensorMeasuredDone);
   pms3003.begin();
 
-  measurement.onFired(readSensor,NULL);
-  measurement.startPeriodic(60000);
-  // Button to switch between class A and C.
-  pinMode(D9, INPUT);
-  attachInterrupt(D9, eventButtonPressed, FALLING);
+  rht.begin(D13);
+
+  pinMode(D5, OUTPUT);
+  digitalWrite(D5, LOW);
 
   System.setTimeDiff(9 * 60);  // KST
 
@@ -603,25 +322,8 @@ void setup() {
   LoRaWAN.onSendDone(eventLoRaWANSendDone);
   LoRaWAN.onReceive(eventLoRaWANReceive);
   LoRaWAN.onJoin(eventLoRaWANJoin);
-  LoRaWAN.onJoinRequested(eventLoRaWANJoinRequested);
-  LoRaWAN.onLinkChecked(eventLoRaWANLinkChecked);
-  LoRaWAN.onDeviceTimeAnswered(eventLoRaWANDeviceTimeAnswered, &System);
-  LoRaWAN.onLinkADRReqReceived(eventLoRaWANLinkADRReqReceived);
-  LoRaWAN.onLinkADRAnsSent(eventLoRaWANLinkADRAnsSent);
-  LoRaWAN.onDutyCycleReqReceived(eventLoRaWANDutyCycleReqReceived);
-  LoRaWAN.onDutyCycleAnsSent(eventLoRaWANDutyCycleAnsSent);
-  LoRaWAN.onRxParamSetupReqReceived(eventLoRaWANRxParamSetupReqReceived);
-  LoRaWAN.onRxParamSetupAnsSent(eventLoRaWANRxParamSetupAnsSent);
-  LoRaWAN.onDevStatusReqReceived(eventLoRaWANDevStatusReqReceived);
-  LoRaWAN.onDevStatusAnsSent(eventLoRaWANDevStatusAnsSent);
-  LoRaWAN.onNewChannelReqReceived(eventLoRaWANNewChannelReqReceived);
-  LoRaWAN.onNewChannelAnsSent(eventLoRaWANNewChannelAnsSent);
-  LoRaWAN.onRxTimingSetupReqReceived(eventLoRaWANRxTimingSetupReqReceived);
-  LoRaWAN.onRxTimingSetupAnsSent(eventLoRaWANRxTimingSetupAnsSent);
 
   LoRaWAN.setPublicNetwork(false);
-
-  printChannelInformation(LoRaWAN);
 
 #if (OVER_THE_AIR_ACTIVATION == 0)
   printf("ABP!\n");
@@ -664,7 +366,4 @@ void setup() {
   Serial.listen();
 
 #endif //OVER_THE_AIR_ACTIVATION
-
-  pinMode(D4, OUTPUT);
-  digitalWrite(D4, LOW);
 }
