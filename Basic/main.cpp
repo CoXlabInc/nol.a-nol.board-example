@@ -5,6 +5,7 @@
 Timer ledTimer;
 Timer printTimer;
 Timer pulseTimer;
+uint8_t countNoInit __attribute__((section(".noinit")));
 
 static void ledOffTask(void *args);
 
@@ -53,6 +54,7 @@ static void printTask(void *args) {
   //![How to use getDateTime]
   printf("* Supply voltage: %ld mV\n", System.getSupplyVoltage());
   printf("* Random number:%lu\n", random());
+  printf("* countNoInit:%u\n", ++countNoInit);
 
   Serial2.printf("[%lu usec] Timer works!\n", micros());
   Serial2.write("012345\r\n");
