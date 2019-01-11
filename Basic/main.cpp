@@ -40,7 +40,7 @@ static void printTask(void *args) {
   struct timeval now;
   gettimeofday(&now, NULL);
   printf(
-    "Now: %u-%u-%u %s %02u:%02u:%02u (%lu.%06lu)\n",
+    "- Now: %u-%u-%u %s %02u:%02u:%02u (%lu.%06lu)\n",
     t.tm_year + 1900,
     t.tm_mon + 1,
     t.tm_mday,
@@ -52,9 +52,9 @@ static void printTask(void *args) {
     now.tv_usec
   );
   //![How to use getDateTime]
-  printf("* Supply voltage: %ld mV\n", System.getSupplyVoltage());
-  printf("* Random number:%lu\n", random());
-  printf("* countNoInit:%u\n", ++countNoInit);
+  printf("- Supply voltage: %ld mV\n", System.getSupplyVoltage());
+  printf("- Random number:%lu\n", random());
+  printf("- countNoInit:%u\n", ++countNoInit);
 
   Serial2.printf("[%lu usec] Timer works!\n", micros());
   Serial2.write("012345\r\n");
@@ -95,7 +95,8 @@ void setup() {
   // Serial2.onReceive(eventSerialRx);
   // Serial2.listen();
   Serial.printf("\n*** [Nol.Board] Basic Functions ***\n");
-  Serial.printf("* Nol.A-SDK Version: %u.%u.%u\n", NOLA_VER_MAJOR, NOLA_VER_MINOR, NOLA_VER_PATCH);
+  Serial.printf("- Nol.A-SDK Version: %u.%u.%u\n", NOLA_VER_MAJOR, NOLA_VER_MINOR, NOLA_VER_PATCH);
+  Serial.printf("- sizeof(timeval):%u\n", sizeof(struct timeval));
 
   uint8_t eui[8];
   System.getEUI(eui);
@@ -107,20 +108,6 @@ void setup() {
   //![How to use setTimeDiff]
   System.setTimeDiff(9 * 60); //KST: +9*60 minutes
   //![How to use setTimeDiff]
-
-  struct tm t;
-  t.tm_year = 2017 - 1900;  // 2017
-  t.tm_mon = 8 - 1;         // August
-  t.tm_mday = 22;
-  t.tm_hour = 17;
-  t.tm_min = 29;
-  t.tm_sec = 50;
-
-  System.setDateTime(t);
-
-  System.onDateTimeAlarm(eventDateTimeAlarm);
-
-  System.setTimeAlarm(17, 30);
 
   ledTimer.onFired(ledOffTask, NULL);
   ledTimer.startOneShot(1000);
