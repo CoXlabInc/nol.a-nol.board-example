@@ -1,5 +1,6 @@
 #include <cox.h>
 #include <RHT03.hpp>
+#include <LPPMac.hpp>
 
 #define REPORT_TO_NOLITER 1
 

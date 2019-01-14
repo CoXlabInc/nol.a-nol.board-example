@@ -1,4 +1,5 @@
 #include <cox.h>
+#include <LPPMac.hpp>
 
 //![Init]
 void send(void *args);
